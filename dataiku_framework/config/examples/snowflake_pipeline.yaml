@@ -1,0 +1,208 @@
+# Complete Snowflake Data Pipeline
+# This example shows a more complex pipeline with multiple transformations
+
+version: "1.0"
+
+project:
+  key: SALES_ANALYTICS
+  name: "Sales Analytics Pipeline"
+  description: "Multi-stage sales data processing and aggregation"
+  owner: analytics_team
+
+datasets:
+  # --- SOURCE DATASETS ---
+  - name: RAW_CUSTOMERS
+    type: SQL
+    connection: snowflake_prod
+    params:
+      schema: RAW
+      table: CUSTOMERS
+      mode: table
+
+  - name: RAW_ORDERS
+    type: SQL
+    connection: snowflake_prod
+    params:
+      schema: RAW
+      table: ORDERS
+      mode: table
+
+  - name: RAW_PRODUCTS
+    type: SQL
+    connection: snowflake_prod
+    params:
+      schema: RAW
+      table: PRODUCTS
+      mode: table
+
+  # --- CLEANED DATASETS ---
+  - name: CLEAN_CUSTOMERS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  - name: CLEAN_ORDERS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  - name: CLEAN_PRODUCTS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  # --- JOINED DATASETS ---
+  - name: CUSTOMER_ORDERS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  - name: ORDERS_WITH_PRODUCTS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  # --- AGGREGATED DATASETS ---
+  - name: CUSTOMER_SUMMARY
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+  - name: PRODUCT_PERFORMANCE
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+recipes:
+  # --- CLEANING RECIPES ---
+  - name: clean_customers
+    type: python
+    inputs: [RAW_CUSTOMERS]
+    outputs: [CLEAN_CUSTOMERS]
+    code_file: recipes/clean_customers.py
+
+  - name: clean_orders
+    type: python
+    inputs: [RAW_ORDERS]
+    outputs: [CLEAN_ORDERS]
+    code_file: recipes/clean_orders.py
+
+  - name: clean_products
+    type: python
+    inputs: [RAW_PRODUCTS]
+    outputs: [CLEAN_PRODUCTS]
+    code_file: recipes/clean_products.py
+
+  # --- JOIN RECIPES (Visual recipes) ---
+  - name: join_customer_orders
+    type: join
+    inputs:
+      - CLEAN_CUSTOMERS
+      - CLEAN_ORDERS
+    outputs:
+      - CUSTOMER_ORDERS
+    params:
+      join_type: left
+      join_conditions:
+        - input1_column: CUSTOMER_ID
+          input2_column: CUSTOMER_ID
+
+  - name: join_orders_products
+    type: join
+    inputs:
+      - CUSTOMER_ORDERS
+      - CLEAN_PRODUCTS
+    outputs:
+      - ORDERS_WITH_PRODUCTS
+    params:
+      join_type: left
+      join_conditions:
+        - input1_column: PRODUCT_ID
+          input2_column: PRODUCT_ID
+
+  # --- AGGREGATION RECIPES (Visual recipes) ---
+  - name: aggregate_customer_summary
+    type: grouping
+    inputs:
+      - CUSTOMER_ORDERS
+    outputs:
+      - CUSTOMER_SUMMARY
+    params:
+      keys:
+        - column: CUSTOMER_ID
+        - column: CUSTOMER_STATE
+      aggregations:
+        - column: ORDER_ID
+          function: count
+          output: ORDER_COUNT
+        - column: ORDER_AMOUNT
+          function: sum
+          output: TOTAL_REVENUE
+        - column: ORDER_AMOUNT
+          function: avg
+          output: AVG_ORDER_VALUE
+
+  - name: aggregate_product_performance
+    type: grouping
+    inputs:
+      - ORDERS_WITH_PRODUCTS
+    outputs:
+      - PRODUCT_PERFORMANCE
+    params:
+      keys:
+        - column: PRODUCT_ID
+        - column: PRODUCT_CATEGORY
+      aggregations:
+        - column: ORDER_ID
+          function: count
+          output: ORDER_COUNT
+        - column: ORDER_AMOUNT
+          function: sum
+          output: TOTAL_REVENUE
+
+scenarios:
+  - name: daily_refresh
+    active: true
+    triggers:
+      - type: temporal
+        frequency: daily
+        hour: 3
+        minute: 0
+    steps:
+      # Build all final datasets recursively
+      - type: build_flowitem
+        items:
+          - CUSTOMER_SUMMARY
+          - PRODUCT_PERFORMANCE
+        build_mode: RECURSIVE
+
+  - name: manual_rebuild
+    active: false
+    triggers:
+      - type: manual
+    steps:
+      # Rebuild everything from scratch
+      - type: build_flowitem
+        items:
+          - CLEAN_CUSTOMERS
+          - CLEAN_ORDERS
+          - CLEAN_PRODUCTS
+          - CUSTOMER_SUMMARY
+          - PRODUCT_PERFORMANCE
+        build_mode: RECURSIVE
+
+metadata:
+  created_by: AI Agent (Claude Code)
+  created_at: "2025-11-21"
+  version: "1.0"
+  tags:
+    - sales
+    - analytics
+    - snowflake

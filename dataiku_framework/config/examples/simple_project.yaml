@@ -1,0 +1,65 @@
+# Simple Dataiku Project Configuration
+# This example shows a basic ETL pipeline with Snowflake
+
+version: "1.0"
+
+project:
+  key: CUSTOMER_ANALYTICS
+  name: "Customer Analytics Pipeline"
+  description: "Process and analyze customer data from Snowflake"
+  owner: data_team
+
+datasets:
+  # Source dataset from Snowflake
+  - name: RAW_CUSTOMERS
+    type: SQL
+    connection: snowflake_prod  # Must exist in Dataiku
+    params:
+      schema: RAW
+      table: CUSTOMERS
+      mode: table
+
+  # Cleaned dataset (managed by Dataiku)
+  - name: CLEAN_CUSTOMERS
+    type: Filesystem
+    connection: managed_filesystem
+    managed: true
+    format_type: parquet
+
+recipes:
+  # Python recipe to clean data
+  - name: clean_customers
+    type: python
+    inputs:
+      - RAW_CUSTOMERS
+    outputs:
+      - CLEAN_CUSTOMERS
+    code: |
+      import dataiku
+      import pandas as pd
+
+      # Read input
+      df = dataiku.Dataset("RAW_CUSTOMERS").get_dataframe()
+
+      # Clean data
+      df = df.dropna(subset=['CUSTOMER_ID', 'EMAIL'])
+      df['CUSTOMER_ID'] = df['CUSTOMER_ID'].astype(str)
+      df['EMAIL'] = df['EMAIL'].str.lower().str.strip()
+
+      # Write output
+      dataiku.Dataset("CLEAN_CUSTOMERS").write_with_schema(df)
+
+scenarios:
+  # Daily refresh scenario
+  - name: daily_refresh
+    active: true
+    triggers:
+      - type: temporal
+        frequency: daily
+        hour: 2
+        minute: 0
+    steps:
+      - type: build_flowitem
+        items:
+          - CLEAN_CUSTOMERS
+        build_mode: RECURSIVE
