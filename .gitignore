@@ -4,3 +4,14 @@
 egg-info
 dist
 dataiku_api_client.egg-info/
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
