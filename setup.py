@@ -12,7 +12,11 @@ setup(
     version=VERSION,
     license="Apache Software License",
     packages=["dataikuapi", "dataikuapi.dss", "dataikuapi.apinode_admin", "dataikuapi.fm", "dataikuapi.iam",
-              "dataikuapi.govern", "dataikuapi.dss_plugin_mlflow", "dataikuapi.dss.langchain", "dataikuapi.dss.tools", "dataikuapi.dss.llm_tracing"],
+              "dataikuapi.govern", "dataikuapi.dss_plugin_mlflow", "dataikuapi.dss.langchain", "dataikuapi.dss.tools", "dataikuapi.dss.llm_tracing",
+              "dataikuapi.iac", "dataikuapi.iac.models", "dataikuapi.iac.sync", "dataikuapi.iac.schemas"],
+    package_data={
+        "dataikuapi.iac.schemas": ["*.json"]
+    },
     description="Python API client for Dataiku APIs",
     long_description=long_description,
     author="Dataiku",
@@ -29,6 +33,7 @@ setup(
     ],
     install_requires=[
         "requests<3",
-        "python-dateutil"
+        "python-dateutil",
+        "jsonschema>=3.0.0"
     ]
 )
