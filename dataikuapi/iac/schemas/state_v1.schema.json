@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dataiku IaC State File",
+  "type": "object",
+  "required": ["version", "serial", "updated_at", "resources"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "State file format version"
+    },
+    "serial": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Incrementing counter for state changes"
+    },
+    "lineage": {
+      "type": ["string", "null"],
+      "description": "Git commit or identifier"
+    },
+    "environment": {
+      "type": "string",
+      "description": "Target environment (dev, prod, etc.)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp (ISO 8601)"
+    },
+    "resources": {
+      "type": "object",
+      "description": "Map of resource_id to resource",
+      "additionalProperties": {
+        "$ref": "#/definitions/resource"
+      }
+    }
+  },
+  "definitions": {
+    "resource": {
+      "type": "object",
+      "required": ["resource_type", "resource_id", "attributes", "metadata"],
+      "properties": {
+        "resource_type": {
+          "type": "string",
+          "enum": ["project", "dataset", "recipe", "scenario", "model"]
+        },
+        "resource_id": {
+          "type": "string",
+          "pattern": "^[a-z_]+\\.[A-Z][A-Z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)?$",
+          "description": "Format: {type}.{PROJECT}[.{NAME}]"
+        },
+        "attributes": {
+          "type": "object",
+          "description": "Resource-specific attributes"
+        },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["deployed_at", "deployed_by", "checksum"],
+      "properties": {
+        "deployed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deployed_by": {
+          "type": "string"
+        },
+        "dataiku_internal_id": {
+          "type": ["string", "null"]
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA256 checksum of attributes"
+        }
+      }
+    }
+  }
+}
