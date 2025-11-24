@@ -7,6 +7,7 @@ including state management, resource synchronization, and diff detection.
 
 from .models import State, Resource, ResourceMetadata, make_resource_id, ChangeType, ResourceDiff
 from .diff import DiffEngine
+from .manager import StateManager
 from .exceptions import (
     DataikuIaCError,
     StateNotFoundError,
@@ -25,6 +26,8 @@ __all__ = [
     'ResourceDiff',
     # Diff Engine
     'DiffEngine',
+    # State Manager
+    'StateManager',
     # Exceptions
     'DataikuIaCError',
     'StateNotFoundError',
