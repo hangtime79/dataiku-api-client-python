@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dataiku.com/schemas/iac/config/v1",
+  "title": "Dataiku IaC Configuration",
+  "description": "Schema for Dataiku Infrastructure as Code configuration files",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration format version",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "default": "1.0"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Configuration metadata",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "description": "Project configuration",
+      "required": ["key", "name"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Project key (must be UPPERCASE_WITH_UNDERSCORES)",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "name": {
+          "type": "string",
+          "description": "Project display name",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Project description"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Additional project settings",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "datasets": {
+      "type": "array",
+      "description": "Dataset configurations",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Dataset name (must be UPPERCASE_WITH_UNDERSCORES)",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "description": "Dataset type",
+            "enum": [
+              "sql",
+              "filesystem",
+              "snowflake",
+              "managed",
+              "postgresql",
+              "mysql",
+              "s3",
+              "hdfs",
+              "azure_blob"
+            ]
+          },
+          "connection": {
+            "type": ["string", "null"],
+            "description": "Connection name (if applicable)"
+          },
+          "params": {
+            "type": "object",
+            "description": "Dataset-specific parameters",
+            "additionalProperties": true
+          },
+          "schema": {
+            "type": ["object", "null"],
+            "description": "Dataset schema definition",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type"],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "additionalProperties": true
+          },
+          "format_type": {
+            "type": ["string", "null"],
+            "description": "Format type for managed datasets",
+            "enum": ["parquet", "csv", "json", "avro", null]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "description": "Recipe configurations",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "outputs"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Recipe name (must be lowercase_with_underscores)",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "description": "Recipe type",
+            "enum": [
+              "python",
+              "sql",
+              "join",
+              "group",
+              "window",
+              "sort",
+              "topn",
+              "distinct",
+              "grouping",
+              "pivot",
+              "split"
+            ]
+          },
+          "inputs": {
+            "type": "array",
+            "description": "Input dataset names",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "outputs": {
+            "type": "array",
+            "description": "Output dataset names",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "params": {
+            "type": "object",
+            "description": "Recipe-specific parameters",
+            "additionalProperties": true
+          },
+          "code": {
+            "type": ["string", "null"],
+            "description": "Recipe code (for code recipes)"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
