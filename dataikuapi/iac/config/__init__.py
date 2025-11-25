@@ -11,6 +11,7 @@ from .models import (
     RecipeConfig,
     Config
 )
+from .parser import ConfigParser
 from .builder import DesiredStateBuilder
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     'DatasetConfig',
     'RecipeConfig',
     'Config',
+    'ConfigParser',
     'DesiredStateBuilder',
 ]

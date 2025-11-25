@@ -13,6 +13,10 @@ datasets:
     type: managed
     format_type: parquet
 
+  - name: PREPPED_DATA
+    type: managed
+    format_type: parquet
+
 recipes:
   - name: prep_data
     type: python

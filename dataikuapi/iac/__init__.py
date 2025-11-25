@@ -13,6 +13,7 @@ from .config import (
     DatasetConfig,
     RecipeConfig,
     Config,
+    ConfigParser,
     DesiredStateBuilder,
 )
 from .planner import (
@@ -45,6 +46,7 @@ __all__ = [
     'DatasetConfig',
     'RecipeConfig',
     'Config',
+    'ConfigParser',
     # Diff Engine
     'DiffEngine',
     # State Manager
