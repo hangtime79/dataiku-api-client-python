@@ -26,3 +26,34 @@ class StateWriteError(DataikuIaCError):
 class ResourceNotFoundError(DataikuIaCError):
     """Resource doesn't exist in Dataiku"""
     pass
+
+
+class ConfigParseError(DataikuIaCError):
+    """Configuration file parsing error"""
+    pass
+
+
+class ConfigValidationError(DataikuIaCError):
+    """Configuration validation error"""
+
+    def __init__(self, errors):
+        """
+        Initialize with list of validation errors.
+
+        Args:
+            errors: List of ValidationError objects or single error message
+        """
+        if isinstance(errors, list):
+            self.errors = errors
+            error_msgs = [f"  - {e.path}: {e.message}" for e in errors]
+            message = f"Configuration validation failed:\n" + "\n".join(error_msgs)
+        else:
+            self.errors = []
+            message = str(errors)
+
+        super().__init__(message)
+
+
+class BuildError(DataikuIaCError):
+    """Failed to build state from configuration"""
+    pass

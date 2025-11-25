@@ -1,0 +1,67 @@
+version: "1.0"
+
+metadata:
+  description: "Complete test project with multiple resources"
+  author: "test_user"
+
+project:
+  key: CUSTOMER_ANALYTICS
+  name: Customer Analytics Project
+  description: Complete customer analytics pipeline
+  settings:
+    exposed: true
+    owner: admin
+
+datasets:
+  - name: RAW_CUSTOMERS
+    type: snowflake
+    connection: snowflake_prod
+    params:
+      table: customers
+      schema: raw
+    schema:
+      columns:
+        - name: customer_id
+          type: bigint
+        - name: email
+          type: string
+
+  - name: CLEANED_CUSTOMERS
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: customer_id
+          type: bigint
+        - name: email
+          type: string
+        - name: cleaned_at
+          type: timestamp
+
+  - name: CUSTOMER_METRICS
+    type: managed
+    format_type: parquet
+
+recipes:
+  - name: clean_customers
+    type: python
+    inputs: [RAW_CUSTOMERS]
+    outputs: [CLEANED_CUSTOMERS]
+    params:
+      engine: python
+    code: |
+      import pandas as pd
+      df = dataiku.Dataset("RAW_CUSTOMERS").get_dataframe()
+      df['cleaned_at'] = pd.Timestamp.now()
+      output = df
+
+  - name: compute_metrics
+    type: sql
+    inputs: [CLEANED_CUSTOMERS]
+    outputs: [CUSTOMER_METRICS]
+    code: |
+      SELECT 
+        customer_id,
+        COUNT(*) as metric_count
+      FROM CLEANED_CUSTOMERS
+      GROUP BY customer_id

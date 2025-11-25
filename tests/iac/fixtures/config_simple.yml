@@ -1,0 +1,23 @@
+version: "1.0"
+
+metadata:
+  description: "Simple test project"
+
+project:
+  key: TEST_PROJECT
+  name: Test Project
+  description: A simple test project
+
+datasets:
+  - name: TEST_DATASET
+    type: managed
+    format_type: parquet
+
+recipes:
+  - name: prep_data
+    type: python
+    inputs: [TEST_DATASET]
+    outputs: [PREPPED_DATA]
+    code: |
+      # Simple transformation
+      output = input
