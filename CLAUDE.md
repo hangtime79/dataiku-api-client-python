@@ -66,25 +66,113 @@ You are a senior software engineer collaborating with a peer. Prioritize thoroug
 
 ## Repository Overview
 
-This repository contains the **Dataiku Python API Client** with comprehensive documentation for building projects and frameworks.
+This repository contains the **Dataiku Python API Client** and **experimental IaC capabilities** with comprehensive documentation for building projects and frameworks.
 
 ### What's in This Repository
 
 ```
 dataiku-api-client-python/
 ├── dataikuapi/              # Main API client package (source code)
+│   └── iac/                # IaC implementation (experimental)
 ├── claude-guides/           # Workflow guides for building projects
+├── dataiku-iac-planning/    # IaC planning & design docs
 ├── dataiku_framework_reference/  # API inventory for framework development
 ├── docs/                    # Modular documentation (start here!)
+├── demos/                   # Working demos (week1_state, week2_plan)
 ├── CLAUDE.md               # This file - your navigation hub
 └── README                   # Package readme
 ```
 
 ---
 
+## Two Modes: API Client vs IaC
+
+This repository supports **two distinct approaches** to managing Dataiku infrastructure:
+
+### 🐍 Python API Client (Imperative - Production Ready)
+
+**Use when:** Writing scripts, automation, complex logic, existing codebases
+
+```python
+from dataikuapi import DSSClient
+
+client = DSSClient(host, api_key)
+project = client.get_project("MY_PROJECT")
+dataset = project.get_dataset("my_dataset")
+job = dataset.build(wait=True)
+```
+
+**Documentation:** Most of this file (CLAUDE.md) covers the API client
+
+---
+
+### 🏗️ Infrastructure as Code (Declarative - Experimental)
+
+**Use when:** GitOps, CI/CD, multi-environment, team collaboration, reproducible deployments
+
+```yaml
+# project.yml - Define WHAT you want, IaC handles HOW
+version: "1.0"
+
+project:
+  key: MY_PROJECT
+  name: My Project
+
+datasets:
+  - name: MY_DATASET
+    type: managed
+    format_type: parquet
+```
+
+```bash
+# Terraform-style workflow
+python -m dataikuapi.iac.cli.plan -c project.yml -e prod
+# Plan: 2 to create, 0 to update, 0 to destroy
+```
+
+**Status:** 🚧 Experimental (Waves 2-3 complete: state management + plan generation)
+
+**Documentation:** **→ [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)** - Start here for IaC
+
+---
+
+### Quick Decision Guide
+
+| You Need... | Use This |
+|-------------|----------|
+| Scripts with loops/conditionals | Python API Client |
+| Git-based infrastructure | IaC |
+| Complex orchestration logic | Python API Client |
+| Multi-environment (dev/staging/prod) | IaC |
+| One-off operations | Python API Client |
+| CI/CD pipelines | IaC |
+| Existing Python codebase | Python API Client |
+| Team collaboration via Git | IaC |
+| Production-ready today | Python API Client |
+| Experimental/testing | IaC |
+
+**Full comparison:** [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)
+
+---
+
 ## Documentation Quick Navigation
 
-### 🚀 Get Started in 5 Minutes
+### 🏗️ Infrastructure as Code (IaC) - NEW!
+**→ [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)** 🚧 **Experimental**
+- API vs IaC comparison
+- YAML-based declarative configs
+- Terraform-style plan workflow
+- State management
+- Current status & roadmap
+
+**→ [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md)**
+- Complete planning & design docs
+- Architecture & technical specs
+- Week-by-week implementation
+
+---
+
+### 🚀 Get Started in 5 Minutes (API Client)
 **→ [`docs/QUICK_START.md`](docs/QUICK_START.md)**
 - Install, connect, verify
 - Run your first operations
@@ -325,6 +413,12 @@ Full list: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
 
 ## Where to Go Next
 
+**Interested in GitOps/IaC? 🚧 Experimental**
+1. [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md) - Understand API vs IaC
+2. [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md) - Full planning docs
+3. [`demos/week2_plan_workflow.py`](demos/week2_plan_workflow.py) - Working demo
+4. [`WAVE_3_COMPLETION_REPORT.md`](WAVE_3_COMPLETION_REPORT.md) - Current status
+
 **New to Dataiku API?**
 1. [`docs/QUICK_START.md`](docs/QUICK_START.md) - Get running in 5 minutes
 2. [`docs/PROJECT_PLANNING.md`](docs/PROJECT_PLANNING.md) - Plan your first project
@@ -348,18 +442,22 @@ Full list: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
 
 ## Documentation Philosophy
 
-- **`docs/`** - Modular, scannable guides (this directory)
-- **`claude-guides/`** - Comprehensive workflow guides for Claude Code
+- **`docs/`** - Modular, scannable guides (API client + IaC overview)
+- **`claude-guides/`** - Comprehensive workflow guides for API client
 - **`dataiku_framework_reference/`** - Complete API reference for framework developers
+- **`dataiku-iac-planning/`** - IaC planning, architecture, and design specifications
 
 All documentation is complementary - use together for best results.
 
 ---
 
-**Version:** 1.0
-**Last Updated:** 2025-11-21
+**Version:** 1.1
+**Last Updated:** 2025-11-26
 **API Version:** 14.1.3+
+**IaC Status:** Experimental (Week 2 Complete)
 
 ---
 
-**Ready to start? → [`docs/QUICK_START.md`](docs/QUICK_START.md)**
+**Ready to start?**
+- **API Client:** [`docs/QUICK_START.md`](docs/QUICK_START.md)
+- **IaC (Experimental):** [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)
