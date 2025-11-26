@@ -1,0 +1,28 @@
+version: "1.0"
+
+# This config has circular dependencies
+# A depends on B, B depends on A
+
+project:
+  key: CIRCULAR_TEST
+  name: Circular Dependency Test
+
+datasets:
+  - name: DATASET_A
+    type: managed
+
+  - name: DATASET_B
+    type: managed
+
+recipes:
+  - name: recipe_a
+    type: python
+    inputs: [DATASET_B]
+    outputs: [DATASET_A]
+    code: "# Recipe A"
+
+  - name: recipe_b
+    type: python
+    inputs: [DATASET_A]
+    outputs: [DATASET_B]
+    code: "# Recipe B"

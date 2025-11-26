@@ -1,0 +1,15 @@
+version: "1.0"
+
+metadata:
+  description: "Minimal test config - single project and dataset"
+  author: "IaC Test Suite"
+
+project:
+  key: IAC_TEST_SIMPLE
+  name: Simple Test Project
+  description: Minimal config for smoke tests
+
+datasets:
+  - name: TEST_DATA
+    type: managed
+    format_type: parquet

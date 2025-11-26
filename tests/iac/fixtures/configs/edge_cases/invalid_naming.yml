@@ -1,0 +1,12 @@
+version: "1.0"
+
+# This config has invalid naming (lowercase project key)
+# Should fail validation
+
+project:
+  key: invalid_project_key  # Should be UPPERCASE
+  name: Invalid Project
+
+datasets:
+  - name: lowercase_dataset  # Should be UPPERCASE
+    type: managed

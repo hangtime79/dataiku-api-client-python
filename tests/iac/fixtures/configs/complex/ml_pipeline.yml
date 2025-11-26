@@ -1,0 +1,203 @@
+version: "1.0"
+
+metadata:
+  description: "Complex ML pipeline with multiple stages"
+  author: "IaC Test Suite"
+  use_case: "End-to-end machine learning workflow"
+
+project:
+  key: IAC_TEST_ML_PIPELINE
+  name: ML Pipeline Complex Test
+  description: |
+    Complex machine learning pipeline demonstrating:
+    - Multiple data sources
+    - Data quality checks
+    - Feature engineering
+    - Train/test splits
+    - Model training and evaluation
+
+datasets:
+  # Raw data (simulating multiple sources)
+  - name: SOURCE_DATA_A
+    type: managed
+    format_type: parquet
+
+  - name: SOURCE_DATA_B
+    type: managed
+    format_type: parquet
+
+  - name: SOURCE_DATA_C
+    type: managed
+    format_type: parquet
+
+  # Data quality layer
+  - name: DQ_DATA_A
+    type: managed
+    format_type: parquet
+    description: Data quality validated version of source A
+
+  - name: DQ_DATA_B
+    type: managed
+    format_type: parquet
+
+  - name: DQ_DATA_C
+    type: managed
+    format_type: parquet
+
+  # Integration layer
+  - name: INTEGRATED_DATA
+    type: managed
+    format_type: parquet
+    description: All sources joined together
+
+  # Feature engineering layer
+  - name: RAW_FEATURES
+    type: managed
+    format_type: parquet
+
+  - name: ENGINEERED_FEATURES
+    type: managed
+    format_type: parquet
+
+  - name: SELECTED_FEATURES
+    type: managed
+    format_type: parquet
+    description: Feature selection applied
+
+  # ML datasets
+  - name: TRAIN_DATA
+    type: managed
+    format_type: parquet
+
+  - name: TEST_DATA
+    type: managed
+    format_type: parquet
+
+  - name: PREDICTIONS
+    type: managed
+    format_type: parquet
+
+  - name: MODEL_METRICS
+    type: managed
+    format_type: parquet
+
+recipes:
+  # Data quality recipes (parallel)
+  - name: dq_check_a
+    type: python
+    inputs: [SOURCE_DATA_A]
+    outputs: [DQ_DATA_A]
+    code: |
+      df = dataiku.Dataset("SOURCE_DATA_A").get_dataframe()
+      df = df.dropna()
+      dataiku.Dataset("DQ_DATA_A").write_with_schema(df)
+
+  - name: dq_check_b
+    type: python
+    inputs: [SOURCE_DATA_B]
+    outputs: [DQ_DATA_B]
+    code: |
+      df = dataiku.Dataset("SOURCE_DATA_B").get_dataframe()
+      df = df.dropna()
+      dataiku.Dataset("DQ_DATA_B").write_with_schema(df)
+
+  - name: dq_check_c
+    type: python
+    inputs: [SOURCE_DATA_C]
+    outputs: [DQ_DATA_C]
+    code: |
+      df = dataiku.Dataset("SOURCE_DATA_C").get_dataframe()
+      df = df.dropna()
+      dataiku.Dataset("DQ_DATA_C").write_with_schema(df)
+
+  # Integration recipe (multi-input)
+  - name: integrate_sources
+    type: python
+    inputs: [DQ_DATA_A, DQ_DATA_B, DQ_DATA_C]
+    outputs: [INTEGRATED_DATA]
+    code: |
+      import pandas as pd
+      a = dataiku.Dataset("DQ_DATA_A").get_dataframe()
+      b = dataiku.Dataset("DQ_DATA_B").get_dataframe()
+      c = dataiku.Dataset("DQ_DATA_C").get_dataframe()
+
+      integrated = a.merge(b, on='id').merge(c, on='id')
+      dataiku.Dataset("INTEGRATED_DATA").write_with_schema(integrated)
+
+  # Feature engineering pipeline
+  - name: extract_raw_features
+    type: python
+    inputs: [INTEGRATED_DATA]
+    outputs: [RAW_FEATURES]
+    code: |
+      df = dataiku.Dataset("INTEGRATED_DATA").get_dataframe()
+      # Feature extraction logic
+      dataiku.Dataset("RAW_FEATURES").write_with_schema(df)
+
+  - name: engineer_features
+    type: python
+    inputs: [RAW_FEATURES]
+    outputs: [ENGINEERED_FEATURES]
+    code: |
+      df = dataiku.Dataset("RAW_FEATURES").get_dataframe()
+      # Feature engineering logic
+      dataiku.Dataset("ENGINEERED_FEATURES").write_with_schema(df)
+
+  - name: select_features
+    type: python
+    inputs: [ENGINEERED_FEATURES]
+    outputs: [SELECTED_FEATURES]
+    code: |
+      df = dataiku.Dataset("ENGINEERED_FEATURES").get_dataframe()
+      # Feature selection logic
+      dataiku.Dataset("SELECTED_FEATURES").write_with_schema(df)
+
+  # Train/test split
+  - name: split_train_test
+    type: python
+    inputs: [SELECTED_FEATURES]
+    outputs: [TRAIN_DATA, TEST_DATA]
+    code: |
+      from sklearn.model_selection import train_test_split
+      df = dataiku.Dataset("SELECTED_FEATURES").get_dataframe()
+
+      train, test = train_test_split(df, test_size=0.2, random_state=42)
+
+      dataiku.Dataset("TRAIN_DATA").write_with_schema(train)
+      dataiku.Dataset("TEST_DATA").write_with_schema(test)
+
+  # Model training and prediction
+  - name: train_and_predict
+    type: python
+    inputs: [TRAIN_DATA, TEST_DATA]
+    outputs: [PREDICTIONS]
+    code: |
+      from sklearn.ensemble import RandomForestClassifier
+
+      train = dataiku.Dataset("TRAIN_DATA").get_dataframe()
+      test = dataiku.Dataset("TEST_DATA").get_dataframe()
+
+      # Train model
+      model = RandomForestClassifier()
+      model.fit(train.drop('target', axis=1), train['target'])
+
+      # Predict
+      test['prediction'] = model.predict(test.drop('target', axis=1))
+
+      dataiku.Dataset("PREDICTIONS").write_with_schema(test)
+
+  # Evaluation
+  - name: evaluate_model
+    type: python
+    inputs: [PREDICTIONS]
+    outputs: [MODEL_METRICS]
+    code: |
+      from sklearn.metrics import classification_report
+      import pandas as pd
+
+      df = dataiku.Dataset("PREDICTIONS").get_dataframe()
+
+      metrics = classification_report(df['target'], df['prediction'], output_dict=True)
+      metrics_df = pd.DataFrame(metrics).transpose()
+
+      dataiku.Dataset("MODEL_METRICS").write_with_schema(metrics_df)

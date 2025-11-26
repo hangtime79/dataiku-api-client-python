@@ -1,0 +1,127 @@
+version: "1.0"
+
+metadata:
+  description: "Realistic customer analytics pipeline"
+  author: "IaC Test Suite"
+  use_case: "Customer segmentation and churn prediction"
+
+project:
+  key: IAC_TEST_CUSTOMER_ANALYTICS
+  name: Customer Analytics Pipeline
+  description: |
+    Complete customer analytics workflow with data ingestion,
+    preparation, feature engineering, and analysis
+
+datasets:
+  # Raw data sources
+  - name: RAW_CUSTOMERS
+    type: managed
+    format_type: parquet
+    description: Raw customer data from source systems
+
+  - name: RAW_TRANSACTIONS
+    type: managed
+    format_type: parquet
+    description: Raw transaction history
+
+  - name: RAW_INTERACTIONS
+    type: managed
+    format_type: parquet
+    description: Customer interaction events
+
+  # Prepared datasets
+  - name: PREPARED_CUSTOMERS
+    type: managed
+    format_type: parquet
+    description: Cleaned and validated customer data
+
+  - name: PREPARED_TRANSACTIONS
+    type: managed
+    format_type: parquet
+    description: Cleaned transaction data
+
+  # Analytics datasets
+  - name: CUSTOMER_FEATURES
+    type: managed
+    format_type: parquet
+    description: Engineered features for ML models
+
+  - name: CUSTOMER_SEGMENTS
+    type: managed
+    format_type: parquet
+    description: Customer segmentation results
+
+recipes:
+  # Data preparation recipes
+  - name: prep_customers
+    type: python
+    description: Clean and validate customer data
+    inputs: [RAW_CUSTOMERS]
+    outputs: [PREPARED_CUSTOMERS]
+    code: |
+      import pandas as pd
+
+      # Read input
+      df = dataiku.Dataset("RAW_CUSTOMERS").get_dataframe()
+
+      # Data quality checks
+      df = df.dropna(subset=['customer_id', 'email'])
+      df = df.drop_duplicates(subset=['customer_id'])
+
+      # Write output
+      dataiku.Dataset("PREPARED_CUSTOMERS").write_with_schema(df)
+
+  - name: prep_transactions
+    type: python
+    description: Clean transaction data
+    inputs: [RAW_TRANSACTIONS]
+    outputs: [PREPARED_TRANSACTIONS]
+    code: |
+      import pandas as pd
+
+      df = dataiku.Dataset("RAW_TRANSACTIONS").get_dataframe()
+      df = df[df['amount'] > 0]  # Remove invalid transactions
+
+      dataiku.Dataset("PREPARED_TRANSACTIONS").write_with_schema(df)
+
+  # Feature engineering recipe
+  - name: build_features
+    type: python
+    description: Build customer features for ML
+    inputs: [PREPARED_CUSTOMERS, PREPARED_TRANSACTIONS, RAW_INTERACTIONS]
+    outputs: [CUSTOMER_FEATURES]
+    code: |
+      import pandas as pd
+
+      customers = dataiku.Dataset("PREPARED_CUSTOMERS").get_dataframe()
+      transactions = dataiku.Dataset("PREPARED_TRANSACTIONS").get_dataframe()
+      interactions = dataiku.Dataset("RAW_INTERACTIONS").get_dataframe()
+
+      # Aggregate transaction metrics
+      txn_metrics = transactions.groupby('customer_id').agg({
+          'amount': ['sum', 'mean', 'count'],
+          'transaction_date': ['min', 'max']
+      })
+
+      # Merge all data
+      features = customers.merge(txn_metrics, on='customer_id', how='left')
+
+      dataiku.Dataset("CUSTOMER_FEATURES").write_with_schema(features)
+
+  # Analytics recipe
+  - name: segment_customers
+    type: python
+    description: Customer segmentation analysis
+    inputs: [CUSTOMER_FEATURES]
+    outputs: [CUSTOMER_SEGMENTS]
+    code: |
+      import pandas as pd
+      from sklearn.cluster import KMeans
+
+      df = dataiku.Dataset("CUSTOMER_FEATURES").get_dataframe()
+
+      # Simple K-means segmentation
+      kmeans = KMeans(n_clusters=4, random_state=42)
+      df['segment'] = kmeans.fit_predict(df[['total_spend', 'frequency']])
+
+      dataiku.Dataset("CUSTOMER_SEGMENTS").write_with_schema(df)
