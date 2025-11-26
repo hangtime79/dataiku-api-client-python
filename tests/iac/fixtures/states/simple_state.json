@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "serial": 1,
+  "lineage": "test",
+  "environment": "test",
+  "updated_at": "2025-11-26T00:00:00Z",
+  "resources": {
+    "project.TEST_PROJECT": {
+      "resource_type": "project",
+      "resource_id": "project.TEST_PROJECT",
+      "attributes": {
+        "projectKey": "TEST_PROJECT",
+        "name": "Test Project",
+        "description": "A simple test project",
+        "shortDesc": "",
+        "tags": [],
+        "checklists": {}
+      },
+      "metadata": {
+        "deployed_at": "2025-11-26T00:00:00Z",
+        "deployed_by": "system",
+        "dataiku_internal_id": null,
+        "checksum": "abc123def456"
+      }
+    },
+    "dataset.TEST_PROJECT.TEST_DATA": {
+      "resource_type": "dataset",
+      "resource_id": "dataset.TEST_PROJECT.TEST_DATA",
+      "attributes": {
+        "name": "TEST_DATA",
+        "type": "managed",
+        "formatType": "parquet",
+        "params": {},
+        "schema": {"columns": []},
+        "tags": []
+      },
+      "metadata": {
+        "deployed_at": "2025-11-26T00:00:00Z",
+        "deployed_by": "system",
+        "dataiku_internal_id": null,
+        "checksum": "xyz789uvw012"
+      }
+    }
+  }
+}
