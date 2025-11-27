@@ -98,13 +98,8 @@ class TestConfigValidator:
         )
 
         validator = ConfigValidator()
-        # Should not raise
-        try:
-            validator.validate(config)
-            assert False, "Should have raised ConfigValidationError"
-        except ConfigValidationError:
-            # Expected - empty config has no errors
-            pass
+        # Should not raise - this is a valid config
+        validator.validate(config)  # No exception should be raised
 
     def test_minimal_valid_config(self):
         """Test minimal valid config."""

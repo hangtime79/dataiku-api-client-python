@@ -249,7 +249,7 @@ class TestComplexPlans:
         assert "+ project.PROJ1" in result
         assert "+ dataset.PROJ1.DATASET1" in result
         assert "+ dataset.PROJ1.DATASET2" in result
-        assert "Plan: 3 to create, 0 to update, 0 to destroy." in result
+        assert "Plan: 3 to create." in result
 
 
 class TestSummaryFormatting:
