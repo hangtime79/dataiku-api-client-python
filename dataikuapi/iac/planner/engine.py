@@ -5,7 +5,7 @@ This module provides the PlanGenerator class for comparing desired state
 vs current state and producing ordered execution plans.
 """
 
-from typing import List, Dict, Set
+from typing import List
 from ..models.state import State
 from ..diff import DiffEngine
 from ..models.diff import ChangeType

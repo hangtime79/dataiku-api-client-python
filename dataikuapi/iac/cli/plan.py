@@ -7,7 +7,6 @@ Generates execution plan by comparing configuration against current state.
 import sys
 import argparse
 from pathlib import Path
-from typing import Optional
 
 from ..config.parser import ConfigParser
 from ..config.validator import ConfigValidator
@@ -20,7 +19,6 @@ from ..exceptions import (
     ConfigParseError,
     ConfigValidationError,
     BuildError,
-    StateNotFoundError
 )
 
 

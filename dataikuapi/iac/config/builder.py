@@ -5,7 +5,6 @@ Converts declarative configuration (Config objects) into internal State model
 that can be compared with current Dataiku state.
 """
 
-from typing import Dict, Any
 from datetime import datetime
 
 from .models import Config, ProjectConfig, DatasetConfig, RecipeConfig

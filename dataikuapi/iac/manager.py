@@ -2,7 +2,6 @@
 State Manager - Main orchestrator for Dataiku IaC state management.
 """
 
-from typing import Optional, List
 from dataikuapi import DSSClient
 
 from .models.state import State, Resource, make_resource_id
@@ -10,7 +9,6 @@ from .backends.base import StateBackend
 from .sync.project import ProjectSync
 from .sync.dataset import DatasetSync
 from .sync.recipe import RecipeSync
-from .exceptions import ResourceNotFoundError
 
 
 class StateManager:

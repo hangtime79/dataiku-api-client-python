@@ -46,7 +46,7 @@ class ConfigValidationError(DataikuIaCError):
         if isinstance(errors, list):
             self.errors = errors
             error_msgs = [f"  - {e.path}: {e.message}" for e in errors]
-            message = f"Configuration validation failed:\n" + "\n".join(error_msgs)
+            message = "Configuration validation failed:\n" + "\n".join(error_msgs)
         else:
             self.errors = []
             message = str(errors)

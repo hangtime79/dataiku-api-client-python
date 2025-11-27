@@ -53,7 +53,7 @@ class RecipeSync(ResourceSync):
             if recipe_type in ["python", "sql", "r"]:
                 try:
                     payload = recipe.get_payload()
-                except:
+                except Exception:
                     payload = None
 
             # Build attributes dict

@@ -10,7 +10,7 @@ This module contains data models for representing execution plans:
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from enum import Enum
-from ..models.diff import ResourceDiff, ChangeType
+from ..models.diff import ResourceDiff
 
 
 class ActionType(Enum):
