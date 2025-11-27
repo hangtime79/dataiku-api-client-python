@@ -7,6 +7,8 @@ This module contains the core data models for managing Dataiku resource state:
 - ResourceMetadata: Tracking metadata for resources
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 from datetime import datetime
