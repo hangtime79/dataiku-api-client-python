@@ -1,0 +1,228 @@
+# ML Pipeline Example
+#
+# This example demonstrates a realistic machine learning pipeline:
+# 1. Load raw data from Snowflake
+# 2. Clean and prepare the data
+# 3. Engineer features
+# 4. Split into train/test sets
+# 5. Train a model (conceptual - actual ML model resources coming in future waves)
+#
+# Usage:
+#   export DB_CONNECTION=snowflake_prod
+#   python -m dataikuapi.iac.cli.plan -c ml-pipeline.yml -e prod
+
+version: "1.0"
+
+metadata:
+  description: "Machine learning pipeline for customer churn prediction"
+  author: "Data Science Team"
+  tags: [ml, customer-analytics, churn]
+
+project:
+  key: CHURN_PREDICTION
+  name: Customer Churn Prediction
+  description: ML pipeline to predict customer churn and identify at-risk segments
+
+datasets:
+  # Source data from Snowflake
+  - name: RAW_CUSTOMERS
+    type: snowflake
+    connection: "{{ env.DB_CONNECTION }}"
+    params:
+      mode: table
+      schema: PUBLIC
+      table: customers
+    schema:
+      columns:
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: EMAIL
+          type: string
+        - name: SIGNUP_DATE
+          type: date
+        - name: LAST_LOGIN
+          type: timestamp
+        - name: TOTAL_PURCHASES
+          type: bigint
+        - name: LIFETIME_VALUE
+          type: double
+        - name: CHURNED
+          type: boolean
+    description: Raw customer data from production database
+
+  # Cleaned data
+  - name: CLEANED_CUSTOMERS
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: EMAIL
+          type: string
+        - name: SIGNUP_DATE
+          type: date
+        - name: LAST_LOGIN
+          type: timestamp
+        - name: TOTAL_PURCHASES
+          type: bigint
+        - name: LIFETIME_VALUE
+          type: double
+        - name: CHURNED
+          type: boolean
+        - name: DAYS_SINCE_SIGNUP
+          type: bigint
+        - name: DAYS_SINCE_LAST_LOGIN
+          type: bigint
+    description: Cleaned customer data with basic date calculations
+
+  # Feature engineered data
+  - name: CUSTOMER_FEATURES
+    type: managed
+    format_type: parquet
+    description: Feature-engineered dataset ready for ML training
+
+  # Train/test splits
+  - name: TRAIN_SET
+    type: managed
+    format_type: parquet
+    description: Training dataset (80% of customers)
+
+  - name: TEST_SET
+    type: managed
+    format_type: parquet
+    description: Test dataset (20% of customers)
+
+  # Model predictions
+  - name: CHURN_PREDICTIONS
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: CHURN_PROBABILITY
+          type: double
+        - name: PREDICTED_CHURN
+          type: boolean
+        - name: PREDICTION_DATE
+          type: timestamp
+    description: Churn predictions for all customers
+
+recipes:
+  # Step 1: Clean and prepare data
+  - name: clean_customers
+    type: python
+    inputs: [RAW_CUSTOMERS]
+    outputs: [CLEANED_CUSTOMERS]
+    description: Clean raw customer data and calculate date-based features
+    code: |
+      import dataiku
+      import pandas as pd
+      from datetime import datetime
+
+      # Read input
+      df = dataiku.Dataset("RAW_CUSTOMERS").get_dataframe()
+
+      # Remove nulls in critical fields
+      df = df.dropna(subset=['CUSTOMER_ID', 'EMAIL', 'SIGNUP_DATE'])
+
+      # Calculate days since signup
+      df['SIGNUP_DATE'] = pd.to_datetime(df['SIGNUP_DATE'])
+      df['DAYS_SINCE_SIGNUP'] = (datetime.now() - df['SIGNUP_DATE']).dt.days
+
+      # Calculate days since last login
+      df['LAST_LOGIN'] = pd.to_datetime(df['LAST_LOGIN'])
+      df['DAYS_SINCE_LAST_LOGIN'] = (datetime.now() - df['LAST_LOGIN']).dt.days
+
+      # Fill missing values
+      df['TOTAL_PURCHASES'] = df['TOTAL_PURCHASES'].fillna(0)
+      df['LIFETIME_VALUE'] = df['LIFETIME_VALUE'].fillna(0.0)
+
+      # Write output
+      dataiku.Dataset("CLEANED_CUSTOMERS").write_with_schema(df)
+
+  # Step 2: Engineer features
+  - name: engineer_features
+    type: python
+    inputs: [CLEANED_CUSTOMERS]
+    outputs: [CUSTOMER_FEATURES]
+    description: Create ML features from cleaned data
+    code: |
+      import dataiku
+      import pandas as pd
+
+      # Read input
+      df = dataiku.Dataset("CLEANED_CUSTOMERS").get_dataframe()
+
+      # Engagement score (0-100)
+      max_purchases = df['TOTAL_PURCHASES'].max()
+      df['ENGAGEMENT_SCORE'] = (df['TOTAL_PURCHASES'] / max_purchases * 100).fillna(0)
+
+      # Recency score (inverse of days since last login)
+      df['RECENCY_SCORE'] = 100 / (1 + df['DAYS_SINCE_LAST_LOGIN'])
+
+      # Value tier (1-5 based on lifetime value)
+      df['VALUE_TIER'] = pd.qcut(df['LIFETIME_VALUE'], q=5, labels=[1,2,3,4,5])
+
+      # Activity level
+      df['ACTIVITY_LEVEL'] = df.apply(
+          lambda x: 'high' if x['DAYS_SINCE_LAST_LOGIN'] < 7
+          else 'medium' if x['DAYS_SINCE_LAST_LOGIN'] < 30
+          else 'low',
+          axis=1
+      )
+
+      # Write output
+      dataiku.Dataset("CUSTOMER_FEATURES").write_with_schema(df)
+
+  # Step 3: Split train/test
+  - name: split_train_test
+    type: python
+    inputs: [CUSTOMER_FEATURES]
+    outputs: [TRAIN_SET, TEST_SET]
+    description: Split dataset into 80/20 train/test sets
+    code: |
+      import dataiku
+      from sklearn.model_selection import train_test_split
+
+      # Read input
+      df = dataiku.Dataset("CUSTOMER_FEATURES").get_dataframe()
+
+      # Split 80/20
+      train_df, test_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df['CHURNED'])
+
+      # Write outputs
+      dataiku.Dataset("TRAIN_SET").write_with_schema(train_df)
+      dataiku.Dataset("TEST_SET").write_with_schema(test_df)
+
+  # Step 4: Generate predictions (placeholder - actual ML model coming in future waves)
+  - name: generate_predictions
+    type: python
+    inputs: [CUSTOMER_FEATURES]
+    outputs: [CHURN_PREDICTIONS]
+    description: Generate churn predictions (placeholder for ML model)
+    code: |
+      import dataiku
+      import pandas as pd
+      from datetime import datetime
+
+      # Read input
+      df = dataiku.Dataset("CUSTOMER_FEATURES").get_dataframe()
+
+      # Simple heuristic-based prediction (replace with real model later)
+      # High risk if: low engagement, low recency, or many days since last login
+      df['CHURN_PROBABILITY'] = (
+          (100 - df['ENGAGEMENT_SCORE']) * 0.4 +
+          (100 - df['RECENCY_SCORE']) * 0.4 +
+          (df['DAYS_SINCE_LAST_LOGIN'] / 365 * 100) * 0.2
+      ) / 100
+
+      df['PREDICTED_CHURN'] = df['CHURN_PROBABILITY'] > 0.6
+      df['PREDICTION_DATE'] = datetime.now()
+
+      # Keep only prediction columns
+      output_df = df[['CUSTOMER_ID', 'CHURN_PROBABILITY', 'PREDICTED_CHURN', 'PREDICTION_DATE']]
+
+      # Write output
+      dataiku.Dataset("CHURN_PREDICTIONS").write_with_schema(output_df)

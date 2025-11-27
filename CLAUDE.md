@@ -130,9 +130,12 @@ python -m dataikuapi.iac.cli.plan -c project.yml -e prod
 # Plan: 2 to create, 0 to update, 0 to destroy
 ```
 
-**Status:** 🚧 Experimental (Waves 2-3 complete: state management + plan generation)
+**Status:** 🚧 Experimental (Waves 1-3 complete: state + plan + tests)
 
-**Documentation:** **→ [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)** - Start here for IaC
+**Documentation:**
+- **Quick Start:** [`docs/IAC_QUICKSTART.md`](docs/IAC_QUICKSTART.md) - Get started in 5 minutes
+- **Full Overview:** [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md) - Complete IaC documentation
+- **Examples:** [`examples/iac/`](examples/iac/) - Sample YAML configurations
 
 ---
 
@@ -158,17 +161,27 @@ python -m dataikuapi.iac.cli.plan -c project.yml -e prod
 ## Documentation Quick Navigation
 
 ### 🏗️ Infrastructure as Code (IaC) - NEW!
-**→ [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)** 🚧 **Experimental**
+**→ [`docs/IAC_QUICKSTART.md`](docs/IAC_QUICKSTART.md)** - 🚧 **Experimental** - Start here!
+- Get started in 5 minutes
+- Simple examples
+- Validate and plan your first project
+
+**→ [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md)** - Complete documentation
 - API vs IaC comparison
 - YAML-based declarative configs
 - Terraform-style plan workflow
 - State management
 - Current status & roadmap
 
-**→ [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md)**
+**→ [`examples/iac/`](examples/iac/)** - Sample configurations
+- Simple project (beginner)
+- ML pipeline (intermediate)
+- Multi-dataset pipeline (advanced)
+
+**→ [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md)** - Planning & design
 - Complete planning & design docs
 - Architecture & technical specs
-- Week-by-week implementation
+- Wave-by-wave implementation
 
 ---
 
@@ -414,10 +427,12 @@ Full list: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
 ## Where to Go Next
 
 **Interested in GitOps/IaC? 🚧 Experimental**
-1. [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md) - Understand API vs IaC
-2. [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md) - Full planning docs
-3. [`demos/week2_plan_workflow.py`](demos/week2_plan_workflow.py) - Working demo
-4. [`WAVE_3_COMPLETION_REPORT.md`](WAVE_3_COMPLETION_REPORT.md) - Current status
+1. [`docs/IAC_QUICKSTART.md`](docs/IAC_QUICKSTART.md) - Get started in 5 minutes
+2. [`examples/iac/`](examples/iac/) - Sample YAML configurations
+3. [`docs/IAC_OVERVIEW.md`](docs/IAC_OVERVIEW.md) - Complete IaC documentation
+4. [`dataiku-iac-planning/README.md`](dataiku-iac-planning/README.md) - Planning & architecture
+5. [`demos/week2_plan_workflow.py`](demos/week2_plan_workflow.py) - Working demo
+6. [`WAVE_3_COMPLETION_REPORT.md`](WAVE_3_COMPLETION_REPORT.md) - Current status
 
 **New to Dataiku API?**
 1. [`docs/QUICK_START.md`](docs/QUICK_START.md) - Get running in 5 minutes
@@ -443,6 +458,7 @@ Full list: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
 ## Documentation Philosophy
 
 - **`docs/`** - Modular, scannable guides (API client + IaC overview)
+- **`examples/`** - Working examples and sample configurations
 - **`claude-guides/`** - Comprehensive workflow guides for API client
 - **`dataiku_framework_reference/`** - Complete API reference for framework developers
 - **`dataiku-iac-planning/`** - IaC planning, architecture, and design specifications
@@ -451,10 +467,10 @@ All documentation is complementary - use together for best results.
 
 ---
 
-**Version:** 1.1
-**Last Updated:** 2025-11-26
+**Version:** 1.2
+**Last Updated:** 2025-11-27
 **API Version:** 14.1.3+
-**IaC Status:** Experimental (Week 2 Complete)
+**IaC Status:** Experimental (Waves 1-3 Complete: State + Plan + Tests)
 
 ---
 

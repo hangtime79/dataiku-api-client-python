@@ -1,0 +1,289 @@
+# Multi-Dataset Pipeline Example
+#
+# This example demonstrates a data pipeline with multiple datasets and recipes:
+# 1. Load data from multiple sources (Snowflake, PostgreSQL, S3)
+# 2. Join and transform datasets
+# 3. Aggregate and compute metrics
+# 4. Prepare final outputs
+#
+# This showcases dependency management - IaC automatically orders operations
+# even though resources are defined in any order.
+#
+# Usage:
+#   export SNOWFLAKE_CONN=snowflake_prod
+#   export POSTGRES_CONN=postgres_prod
+#   export S3_CONN=s3_data_lake
+#   python -m dataikuapi.iac.cli.plan -c multi-dataset.yml -e prod
+
+version: "1.0"
+
+metadata:
+  description: "Multi-source data integration pipeline"
+  author: "Data Engineering Team"
+  tags: [data-integration, etl, multi-source]
+
+project:
+  key: SALES_ANALYTICS
+  name: Sales Analytics Pipeline
+  description: Integrate sales data from multiple sources and compute business metrics
+
+datasets:
+  # Source 1: Customer data from Snowflake
+  - name: SNOWFLAKE_CUSTOMERS
+    type: snowflake
+    connection: "{{ env.SNOWFLAKE_CONN }}"
+    params:
+      mode: table
+      schema: CUSTOMERS
+      table: dim_customers
+    schema:
+      columns:
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: CUSTOMER_NAME
+          type: string
+        - name: REGION
+          type: string
+        - name: SEGMENT
+          type: string
+        - name: CREATED_AT
+          type: timestamp
+    description: Customer dimension from Snowflake
+
+  # Source 2: Sales transactions from PostgreSQL
+  - name: POSTGRES_SALES
+    type: postgresql
+    connection: "{{ env.POSTGRES_CONN }}"
+    params:
+      mode: table
+      schema: public
+      table: sales_transactions
+    schema:
+      columns:
+        - name: TRANSACTION_ID
+          type: bigint
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: PRODUCT_ID
+          type: bigint
+        - name: QUANTITY
+          type: bigint
+        - name: AMOUNT
+          type: double
+        - name: TRANSACTION_DATE
+          type: date
+    description: Sales transactions from PostgreSQL
+
+  # Source 3: Product catalog from S3
+  - name: S3_PRODUCTS
+    type: s3
+    connection: "{{ env.S3_CONN }}"
+    params:
+      path: /data/products/catalog.csv
+    schema:
+      columns:
+        - name: PRODUCT_ID
+          type: bigint
+        - name: PRODUCT_NAME
+          type: string
+        - name: CATEGORY
+          type: string
+        - name: UNIT_PRICE
+          type: double
+    description: Product catalog from S3 data lake
+
+  # Intermediate: Enriched sales (sales + customer info)
+  - name: ENRICHED_SALES
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: TRANSACTION_ID
+          type: bigint
+        - name: CUSTOMER_ID
+          type: bigint
+        - name: CUSTOMER_NAME
+          type: string
+        - name: REGION
+          type: string
+        - name: SEGMENT
+          type: string
+        - name: PRODUCT_ID
+          type: bigint
+        - name: QUANTITY
+          type: bigint
+        - name: AMOUNT
+          type: double
+        - name: TRANSACTION_DATE
+          type: date
+    description: Sales transactions enriched with customer information
+
+  # Intermediate: Full sales (enriched + product info)
+  - name: FULL_SALES
+    type: managed
+    format_type: parquet
+    description: Complete sales data with customer and product information
+
+  # Final: Daily sales metrics
+  - name: DAILY_SALES_METRICS
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: TRANSACTION_DATE
+          type: date
+        - name: TOTAL_TRANSACTIONS
+          type: bigint
+        - name: TOTAL_REVENUE
+          type: double
+        - name: AVG_TRANSACTION_AMOUNT
+          type: double
+        - name: UNIQUE_CUSTOMERS
+          type: bigint
+    description: Daily aggregated sales metrics
+
+  # Final: Regional sales summary
+  - name: REGIONAL_SALES_SUMMARY
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: REGION
+          type: string
+        - name: TOTAL_REVENUE
+          type: double
+        - name: TOTAL_TRANSACTIONS
+          type: bigint
+        - name: UNIQUE_CUSTOMERS
+          type: bigint
+        - name: AVG_CUSTOMER_VALUE
+          type: double
+    description: Sales summary by region
+
+  # Final: Product performance
+  - name: PRODUCT_PERFORMANCE
+    type: managed
+    format_type: parquet
+    schema:
+      columns:
+        - name: PRODUCT_ID
+          type: bigint
+        - name: PRODUCT_NAME
+          type: string
+        - name: CATEGORY
+          type: string
+        - name: TOTAL_QUANTITY_SOLD
+          type: bigint
+        - name: TOTAL_REVENUE
+          type: double
+        - name: AVG_PRICE
+          type: double
+    description: Product sales performance metrics
+
+recipes:
+  # Step 1: Enrich sales with customer data
+  - name: enrich_sales_with_customers
+    type: sql
+    inputs: [POSTGRES_SALES, SNOWFLAKE_CUSTOMERS]
+    outputs: [ENRICHED_SALES]
+    description: Join sales transactions with customer dimension
+    code: |
+      SELECT
+        s.TRANSACTION_ID,
+        s.CUSTOMER_ID,
+        c.CUSTOMER_NAME,
+        c.REGION,
+        c.SEGMENT,
+        s.PRODUCT_ID,
+        s.QUANTITY,
+        s.AMOUNT,
+        s.TRANSACTION_DATE
+      FROM POSTGRES_SALES s
+      LEFT JOIN SNOWFLAKE_CUSTOMERS c
+        ON s.CUSTOMER_ID = c.CUSTOMER_ID
+
+  # Step 2: Add product information
+  - name: add_product_info
+    type: sql
+    inputs: [ENRICHED_SALES, S3_PRODUCTS]
+    outputs: [FULL_SALES]
+    description: Join enriched sales with product catalog
+    code: |
+      SELECT
+        e.*,
+        p.PRODUCT_NAME,
+        p.CATEGORY,
+        p.UNIT_PRICE
+      FROM ENRICHED_SALES e
+      LEFT JOIN S3_PRODUCTS p
+        ON e.PRODUCT_ID = p.PRODUCT_ID
+
+  # Step 3: Compute daily metrics
+  - name: compute_daily_metrics
+    type: sql
+    inputs: [FULL_SALES]
+    outputs: [DAILY_SALES_METRICS]
+    description: Aggregate sales data by day
+    code: |
+      SELECT
+        TRANSACTION_DATE,
+        COUNT(*) as TOTAL_TRANSACTIONS,
+        SUM(AMOUNT) as TOTAL_REVENUE,
+        AVG(AMOUNT) as AVG_TRANSACTION_AMOUNT,
+        COUNT(DISTINCT CUSTOMER_ID) as UNIQUE_CUSTOMERS
+      FROM FULL_SALES
+      GROUP BY TRANSACTION_DATE
+      ORDER BY TRANSACTION_DATE DESC
+
+  # Step 4: Compute regional summary
+  - name: compute_regional_summary
+    type: sql
+    inputs: [FULL_SALES]
+    outputs: [REGIONAL_SALES_SUMMARY]
+    description: Aggregate sales data by region
+    code: |
+      SELECT
+        REGION,
+        SUM(AMOUNT) as TOTAL_REVENUE,
+        COUNT(*) as TOTAL_TRANSACTIONS,
+        COUNT(DISTINCT CUSTOMER_ID) as UNIQUE_CUSTOMERS,
+        SUM(AMOUNT) / COUNT(DISTINCT CUSTOMER_ID) as AVG_CUSTOMER_VALUE
+      FROM FULL_SALES
+      GROUP BY REGION
+      ORDER BY TOTAL_REVENUE DESC
+
+  # Step 5: Analyze product performance
+  - name: analyze_product_performance
+    type: python
+    inputs: [FULL_SALES]
+    outputs: [PRODUCT_PERFORMANCE]
+    description: Compute product-level performance metrics
+    code: |
+      import dataiku
+      import pandas as pd
+
+      # Read input
+      df = dataiku.Dataset("FULL_SALES").get_dataframe()
+
+      # Group by product
+      product_metrics = df.groupby(['PRODUCT_ID', 'PRODUCT_NAME', 'CATEGORY']).agg({
+          'QUANTITY': 'sum',
+          'AMOUNT': 'sum',
+          'UNIT_PRICE': 'mean'
+      }).reset_index()
+
+      # Rename columns
+      product_metrics.columns = [
+          'PRODUCT_ID',
+          'PRODUCT_NAME',
+          'CATEGORY',
+          'TOTAL_QUANTITY_SOLD',
+          'TOTAL_REVENUE',
+          'AVG_PRICE'
+      ]
+
+      # Sort by revenue
+      product_metrics = product_metrics.sort_values('TOTAL_REVENUE', ascending=False)
+
+      # Write output
+      dataiku.Dataset("PRODUCT_PERFORMANCE").write_with_schema(product_metrics)
