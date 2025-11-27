@@ -15,6 +15,7 @@ from ..models.diff import ResourceDiff
 
 class ActionType(Enum):
     """Type of action in execution plan."""
+
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
@@ -25,7 +26,7 @@ class ActionType(Enum):
 class PlannedAction:
     """
     Single action in execution plan.
-    
+
     Attributes:
         action_type: Type of action (create, update, delete, no-change)
         resource_id: Unique identifier for the resource
@@ -33,6 +34,7 @@ class PlannedAction:
         diff: ResourceDiff containing the change details
         dependencies: List of resource IDs this action depends on
     """
+
     action_type: ActionType
     resource_id: str
     resource_type: str
@@ -45,7 +47,7 @@ class PlannedAction:
             ActionType.CREATE: "+",
             ActionType.UPDATE: "~",
             ActionType.DELETE: "-",
-            ActionType.NO_CHANGE: " "
+            ActionType.NO_CHANGE: " ",
         }[self.action_type]
         return f"{symbol} {self.resource_id}"
 
@@ -57,11 +59,12 @@ class ExecutionPlan:
 
     Ordered list of actions to transform current state
     into desired state.
-    
+
     Attributes:
         actions: Ordered list of PlannedAction objects
         metadata: Additional metadata about the plan
     """
+
     actions: List[PlannedAction] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -72,13 +75,8 @@ class ExecutionPlan:
         Returns:
             Dict with counts: {create: N, update: N, delete: N, no_change: N}
         """
-        summary = {
-            "create": 0,
-            "update": 0,
-            "delete": 0,
-            "no_change": 0
-        }
-        
+        summary = {"create": 0, "update": 0, "delete": 0, "no_change": 0}
+
         for action in self.actions:
             if action.action_type == ActionType.CREATE:
                 summary["create"] += 1
@@ -88,13 +86,13 @@ class ExecutionPlan:
                 summary["delete"] += 1
             elif action.action_type == ActionType.NO_CHANGE:
                 summary["no_change"] += 1
-        
+
         return summary
 
     def has_changes(self) -> bool:
         """
         Check if plan has any changes.
-        
+
         Returns:
             True if plan contains create, update, or delete actions
         """

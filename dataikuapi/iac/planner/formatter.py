@@ -15,12 +15,12 @@ class PlanFormatter:
     Format execution plans for human-readable output.
 
     Terraform-style output with color coding and symbols.
-    
+
     Symbols:
         + : CREATE
         ~ : UPDATE
         - : DELETE
-        
+
     Colors:
         Green: CREATE
         Yellow: UPDATE
@@ -40,7 +40,7 @@ class PlanFormatter:
         ActionType.CREATE: "+",
         ActionType.UPDATE: "~",
         ActionType.DELETE: "-",
-        ActionType.NO_CHANGE: " "
+        ActionType.NO_CHANGE: " ",
     }
 
     def __init__(self, color: bool = True):
@@ -121,7 +121,9 @@ class PlanFormatter:
                 for attr_key, attr_change in action.diff.attribute_diffs.items():
                     old_value = self._format_value(attr_change.get("old"))
                     new_value = self._format_value(attr_change.get("new"))
-                    lines.append(f"    {color}~{reset} {attr_key}: {old_value} => {new_value}")
+                    lines.append(
+                        f"    {color}~{reset} {attr_key}: {old_value} => {new_value}"
+                    )
 
         # For DELETE: just show the resource ID (already in action line)
 
@@ -139,7 +141,9 @@ class PlanFormatter:
         # Check if there are any changes
         if not plan.has_changes():
             if self.color:
-                return f"{self.BOLD}No changes. Infrastructure is up-to-date.{self.RESET}"
+                return (
+                    f"{self.BOLD}No changes. Infrastructure is up-to-date.{self.RESET}"
+                )
             else:
                 return "No changes. Infrastructure is up-to-date."
 
@@ -152,7 +156,7 @@ class PlanFormatter:
                 parts.append(f"{self.GREEN}{text}{self.RESET}")
             else:
                 parts.append(text)
-                
+
         if summary.get("update", 0) > 0:
             count = summary["update"]
             text = f"{count} to update"
@@ -160,7 +164,7 @@ class PlanFormatter:
                 parts.append(f"{self.YELLOW}{text}{self.RESET}")
             else:
                 parts.append(text)
-                
+
         if summary.get("delete", 0) > 0:
             count = summary["delete"]
             text = f"{count} to destroy"
@@ -170,7 +174,7 @@ class PlanFormatter:
                 parts.append(text)
 
         summary_text = ", ".join(parts) + "."
-        
+
         if self.color:
             return f"{self.BOLD}Plan:{self.RESET} {summary_text}"
         else:
@@ -185,7 +189,7 @@ class PlanFormatter:
             ActionType.CREATE: self.GREEN,
             ActionType.UPDATE: self.YELLOW,
             ActionType.DELETE: self.RED,
-            ActionType.NO_CHANGE: self.RESET
+            ActionType.NO_CHANGE: self.RESET,
         }.get(action_type, self.RESET)
 
     def _format_value(self, value: Any) -> str:

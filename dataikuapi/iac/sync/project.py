@@ -32,7 +32,7 @@ class ProjectSync(ResourceSync):
             ValueError: If resource_id format is invalid
         """
         # Parse resource_id
-        parts = resource_id.split('.')
+        parts = resource_id.split(".")
         if len(parts) != 2 or parts[0] != "project":
             raise ValueError(f"Invalid project resource_id: {resource_id}")
 
@@ -59,14 +59,14 @@ class ProjectSync(ResourceSync):
             metadata = ResourceMetadata(
                 deployed_at=datetime.utcnow(),
                 deployed_by="system",  # TODO: get actual user
-                dataiku_internal_id=None  # Projects use key as ID
+                dataiku_internal_id=None,  # Projects use key as ID
             )
 
             return Resource(
                 resource_type="project",
                 resource_id=resource_id,
                 attributes=attributes,
-                metadata=metadata
+                metadata=metadata,
             )
 
         except Exception as e:

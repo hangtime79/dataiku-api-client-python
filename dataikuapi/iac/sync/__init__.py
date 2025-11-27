@@ -6,8 +6,8 @@ from .dataset import DatasetSync
 from .recipe import RecipeSync
 
 __all__ = [
-    'ResourceSync',
-    'ProjectSync',
-    'DatasetSync',
-    'RecipeSync',
+    "ResourceSync",
+    "ProjectSync",
+    "DatasetSync",
+    "RecipeSync",
 ]

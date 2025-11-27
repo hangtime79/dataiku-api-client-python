@@ -25,9 +25,7 @@ class PlanGenerator:
         self.diff_engine = DiffEngine()
 
     def generate_plan(
-        self,
-        current_state: State,
-        desired_state: State
+        self, current_state: State, desired_state: State
     ) -> ExecutionPlan:
         """
         Generate execution plan.
@@ -60,8 +58,10 @@ class PlanGenerator:
                 "current_serial": current_state.serial,
                 "desired_serial": desired_state.serial,
                 "total_actions": len(ordered_actions),
-                "has_changes": any(a.action_type != ActionType.NO_CHANGE for a in ordered_actions)
-            }
+                "has_changes": any(
+                    a.action_type != ActionType.NO_CHANGE for a in ordered_actions
+                ),
+            },
         )
 
     def _diff_to_action(self, diff) -> PlannedAction:
@@ -78,20 +78,18 @@ class PlanGenerator:
             ChangeType.ADDED: ActionType.CREATE,
             ChangeType.REMOVED: ActionType.DELETE,
             ChangeType.MODIFIED: ActionType.UPDATE,
-            ChangeType.UNCHANGED: ActionType.NO_CHANGE
+            ChangeType.UNCHANGED: ActionType.NO_CHANGE,
         }
 
         return PlannedAction(
             action_type=action_map[diff.change_type],
             resource_id=diff.resource_id,
             resource_type=diff.resource_type,
-            diff=diff
+            diff=diff,
         )
 
     def _compute_dependencies(
-        self,
-        actions: List[PlannedAction],
-        desired_state: State
+        self, actions: List[PlannedAction], desired_state: State
     ) -> List[PlannedAction]:
         """
         Compute dependencies for each action.
@@ -110,9 +108,7 @@ class PlanGenerator:
         return actions
 
     def _get_resource_dependencies(
-        self,
-        action: PlannedAction,
-        state: State
+        self, action: PlannedAction, state: State
     ) -> List[str]:
         """
         Get dependencies for a resource.
@@ -134,7 +130,7 @@ class PlanGenerator:
         resource_id = action.resource_id
 
         # Extract parts from resource_id
-        parts = resource_id.split('.')
+        parts = resource_id.split(".")
         if len(parts) < 2:
             return deps
 
@@ -148,7 +144,10 @@ class PlanGenerator:
         # Recipes depend on their input datasets
         if resource_type == "recipe":
             resource = state.get_resource(resource_id)
-            if resource and action.action_type in [ActionType.CREATE, ActionType.UPDATE]:
+            if resource and action.action_type in [
+                ActionType.CREATE,
+                ActionType.UPDATE,
+            ]:
                 # Get inputs from resource attributes
                 inputs = resource.attributes.get("inputs", [])
                 for input_ref in inputs:
@@ -167,8 +166,7 @@ class PlanGenerator:
         return deps
 
     def _order_by_dependencies(
-        self,
-        actions: List[PlannedAction]
+        self, actions: List[PlannedAction]
     ) -> List[PlannedAction]:
         """
         Order actions respecting dependencies.
@@ -204,9 +202,7 @@ class PlanGenerator:
         return ordered_creates + ordered_updates + ordered_deletes + no_changes
 
     def _topological_sort(
-        self,
-        actions: List[PlannedAction],
-        reverse: bool = False
+        self, actions: List[PlannedAction], reverse: bool = False
     ) -> List[PlannedAction]:
         """
         Topological sort of actions based on dependencies.
@@ -258,7 +254,7 @@ class PlanGenerator:
         # Sort queue for deterministic ordering
         # Priority: projects, then datasets, then recipes
         def get_priority(resource_id: str) -> tuple:
-            parts = resource_id.split('.')
+            parts = resource_id.split(".")
             resource_type = parts[0] if parts else ""
 
             type_order = {

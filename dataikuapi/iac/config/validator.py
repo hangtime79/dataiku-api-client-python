@@ -12,6 +12,7 @@ from ..exceptions import ConfigValidationError
 
 try:
     import jsonschema
+
     HAS_JSONSCHEMA = True
 except ImportError:
     HAS_JSONSCHEMA = False
@@ -49,9 +50,11 @@ class ValidationError:
         """Equality comparison."""
         if not isinstance(other, ValidationError):
             return False
-        return (self.path == other.path and
-                self.message == other.message and
-                self.severity == other.severity)
+        return (
+            self.path == other.path
+            and self.message == other.message
+            and self.severity == other.severity
+        )
 
 
 class ConfigValidator:
@@ -68,19 +71,35 @@ class ConfigValidator:
 
     # Valid dataset types
     VALID_DATASET_TYPES = {
-        'sql', 'filesystem', 'snowflake', 'managed',
-        'postgresql', 'mysql', 's3', 'hdfs', 'azure_blob'
+        "sql",
+        "filesystem",
+        "snowflake",
+        "managed",
+        "postgresql",
+        "mysql",
+        "s3",
+        "hdfs",
+        "azure_blob",
     }
 
     # Valid recipe types
     VALID_RECIPE_TYPES = {
-        'python', 'sql', 'join', 'group', 'window', 'sort',
-        'topn', 'distinct', 'grouping', 'pivot', 'split'
+        "python",
+        "sql",
+        "join",
+        "group",
+        "window",
+        "sort",
+        "topn",
+        "distinct",
+        "grouping",
+        "pivot",
+        "split",
     }
 
     # Naming patterns
-    UPPERCASE_PATTERN = re.compile(r'^[A-Z][A-Z0-9_]*$')
-    LOWERCASE_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
+    UPPERCASE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
+    LOWERCASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
     def __init__(self, strict: bool = True):
         """
@@ -145,9 +164,12 @@ class ConfigValidator:
 
         # Load schema if not loaded
         if self._schema is None:
-            schema_path = Path(__file__).parent.parent / 'schemas' / 'config_v1.schema.json'
+            schema_path = (
+                Path(__file__).parent.parent / "schemas" / "config_v1.schema.json"
+            )
             if schema_path.exists():
                 import json
+
                 with open(schema_path) as f:
                     self._schema = json.load(f)
             else:
@@ -157,38 +179,38 @@ class ConfigValidator:
         # Convert config to dict for validation
         # This is a simple conversion - Package 1 will provide better serialization
         config_dict = {
-            'version': config.version,
-            'metadata': config.metadata,
+            "version": config.version,
+            "metadata": config.metadata,
         }
 
         if config.project:
-            config_dict['project'] = {
-                'key': config.project.key,
-                'name': config.project.name,
-                'description': config.project.description,
-                'settings': config.project.settings
+            config_dict["project"] = {
+                "key": config.project.key,
+                "name": config.project.name,
+                "description": config.project.description,
+                "settings": config.project.settings,
             }
 
-        config_dict['datasets'] = [
+        config_dict["datasets"] = [
             {
-                'name': ds.name,
-                'type': ds.type,
-                'connection': ds.connection,
-                'params': ds.params,
-                'schema': ds.schema,
-                'format_type': ds.format_type
+                "name": ds.name,
+                "type": ds.type,
+                "connection": ds.connection,
+                "params": ds.params,
+                "schema": ds.schema,
+                "format_type": ds.format_type,
             }
             for ds in config.datasets
         ]
 
-        config_dict['recipes'] = [
+        config_dict["recipes"] = [
             {
-                'name': r.name,
-                'type': r.type,
-                'inputs': r.inputs,
-                'outputs': r.outputs,
-                'params': r.params,
-                'code': r.code
+                "name": r.name,
+                "type": r.type,
+                "inputs": r.inputs,
+                "outputs": r.outputs,
+                "params": r.params,
+                "code": r.code,
             }
             for r in config.recipes
         ]
@@ -197,18 +219,22 @@ class ConfigValidator:
         try:
             jsonschema.validate(config_dict, self._schema)
         except jsonschema.ValidationError as e:
-            errors.append(ValidationError(
-                path='.'.join(str(p) for p in e.path) if e.path else 'root',
-                message=e.message,
-                severity='error'
-            ))
+            errors.append(
+                ValidationError(
+                    path=".".join(str(p) for p in e.path) if e.path else "root",
+                    message=e.message,
+                    severity="error",
+                )
+            )
         except jsonschema.SchemaError as e:
             # Schema itself is invalid
-            errors.append(ValidationError(
-                path='schema',
-                message=f"Invalid schema: {e.message}",
-                severity='error'
-            ))
+            errors.append(
+                ValidationError(
+                    path="schema",
+                    message=f"Invalid schema: {e.message}",
+                    severity="error",
+                )
+            )
 
         return errors
 
@@ -232,29 +258,35 @@ class ConfigValidator:
         # Validate project key
         if config.project:
             if not self.UPPERCASE_PATTERN.match(config.project.key):
-                errors.append(ValidationError(
-                    path='project.key',
-                    message=f"Project key '{config.project.key}' must be UPPERCASE_WITH_UNDERSCORES",
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path="project.key",
+                        message=f"Project key '{config.project.key}' must be UPPERCASE_WITH_UNDERSCORES",
+                        severity="error",
+                    )
+                )
 
         # Validate dataset names
         for i, dataset in enumerate(config.datasets):
             if not self.UPPERCASE_PATTERN.match(dataset.name):
-                errors.append(ValidationError(
-                    path=f'datasets[{i}].name',
-                    message=f"Dataset name '{dataset.name}' must be UPPERCASE_WITH_UNDERSCORES",
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"datasets[{i}].name",
+                        message=f"Dataset name '{dataset.name}' must be UPPERCASE_WITH_UNDERSCORES",
+                        severity="error",
+                    )
+                )
 
         # Validate recipe names
         for i, recipe in enumerate(config.recipes):
             if not self.LOWERCASE_PATTERN.match(recipe.name):
-                errors.append(ValidationError(
-                    path=f'recipes[{i}].name',
-                    message=f"Recipe name '{recipe.name}' must be lowercase_with_underscores",
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"recipes[{i}].name",
+                        message=f"Recipe name '{recipe.name}' must be lowercase_with_underscores",
+                        severity="error",
+                    )
+                )
 
         return errors
 
@@ -278,53 +310,67 @@ class ConfigValidator:
         # Validate project required fields
         if config.project:
             if not config.project.key:
-                errors.append(ValidationError(
-                    path='project.key',
-                    message='Project key is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path="project.key",
+                        message="Project key is required",
+                        severity="error",
+                    )
+                )
             if not config.project.name:
-                errors.append(ValidationError(
-                    path='project.name',
-                    message='Project name is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path="project.name",
+                        message="Project name is required",
+                        severity="error",
+                    )
+                )
 
         # Validate dataset required fields
         for i, dataset in enumerate(config.datasets):
             if not dataset.name:
-                errors.append(ValidationError(
-                    path=f'datasets[{i}].name',
-                    message='Dataset name is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"datasets[{i}].name",
+                        message="Dataset name is required",
+                        severity="error",
+                    )
+                )
             if not dataset.type:
-                errors.append(ValidationError(
-                    path=f'datasets[{i}].type',
-                    message='Dataset type is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"datasets[{i}].type",
+                        message="Dataset type is required",
+                        severity="error",
+                    )
+                )
 
         # Validate recipe required fields
         for i, recipe in enumerate(config.recipes):
             if not recipe.name:
-                errors.append(ValidationError(
-                    path=f'recipes[{i}].name',
-                    message='Recipe name is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"recipes[{i}].name",
+                        message="Recipe name is required",
+                        severity="error",
+                    )
+                )
             if not recipe.type:
-                errors.append(ValidationError(
-                    path=f'recipes[{i}].type',
-                    message='Recipe type is required',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"recipes[{i}].type",
+                        message="Recipe type is required",
+                        severity="error",
+                    )
+                )
             if not recipe.outputs:
-                errors.append(ValidationError(
-                    path=f'recipes[{i}].outputs',
-                    message='Recipe must have at least one output',
-                    severity='error'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"recipes[{i}].outputs",
+                        message="Recipe must have at least one output",
+                        severity="error",
+                    )
+                )
 
         return errors
 
@@ -343,20 +389,24 @@ class ConfigValidator:
         # Validate dataset types
         for i, dataset in enumerate(config.datasets):
             if dataset.type and dataset.type not in self.VALID_DATASET_TYPES:
-                errors.append(ValidationError(
-                    path=f'datasets[{i}].type',
-                    message=f"Invalid dataset type '{dataset.type}'. Valid types: {', '.join(sorted(self.VALID_DATASET_TYPES))}",
-                    severity='warning'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"datasets[{i}].type",
+                        message=f"Invalid dataset type '{dataset.type}'. Valid types: {', '.join(sorted(self.VALID_DATASET_TYPES))}",
+                        severity="warning",
+                    )
+                )
 
         # Validate recipe types
         for i, recipe in enumerate(config.recipes):
             if recipe.type and recipe.type not in self.VALID_RECIPE_TYPES:
-                errors.append(ValidationError(
-                    path=f'recipes[{i}].type',
-                    message=f"Invalid recipe type '{recipe.type}'. Valid types: {', '.join(sorted(self.VALID_RECIPE_TYPES))}",
-                    severity='warning'
-                ))
+                errors.append(
+                    ValidationError(
+                        path=f"recipes[{i}].type",
+                        message=f"Invalid recipe type '{recipe.type}'. Valid types: {', '.join(sorted(self.VALID_RECIPE_TYPES))}",
+                        severity="warning",
+                    )
+                )
 
         return errors
 
@@ -384,20 +434,24 @@ class ConfigValidator:
             # Validate inputs
             for input_name in recipe.inputs:
                 if input_name not in dataset_names:
-                    errors.append(ValidationError(
-                        path=f'recipes[{i}].inputs',
-                        message=f"Recipe input '{input_name}' references non-existent dataset",
-                        severity='error'
-                    ))
+                    errors.append(
+                        ValidationError(
+                            path=f"recipes[{i}].inputs",
+                            message=f"Recipe input '{input_name}' references non-existent dataset",
+                            severity="error",
+                        )
+                    )
 
             # Validate outputs
             for output_name in recipe.outputs:
                 if output_name not in dataset_names:
-                    errors.append(ValidationError(
-                        path=f'recipes[{i}].outputs',
-                        message=f"Recipe output '{output_name}' references non-existent dataset",
-                        severity='error'
-                    ))
+                    errors.append(
+                        ValidationError(
+                            path=f"recipes[{i}].outputs",
+                            message=f"Recipe output '{output_name}' references non-existent dataset",
+                            severity="error",
+                        )
+                    )
 
         return errors
 
@@ -448,11 +502,13 @@ class ConfigValidator:
                     # Found cycle
                     cycle_start = path.index(dep)
                     cycle = path[cycle_start:] + [dep]
-                    errors.append(ValidationError(
-                        path='recipes',
-                        message=f"Circular dependency detected: {' -> '.join(cycle)}",
-                        severity='error'
-                    ))
+                    errors.append(
+                        ValidationError(
+                            path="recipes",
+                            message=f"Circular dependency detected: {' -> '.join(cycle)}",
+                            severity="error",
+                        )
+                    )
                     return True
 
             path.pop()

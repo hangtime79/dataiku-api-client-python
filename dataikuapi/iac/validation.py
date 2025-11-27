@@ -12,6 +12,7 @@ from typing import Dict, Any
 try:
     import jsonschema
     from jsonschema import ValidationError
+
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
