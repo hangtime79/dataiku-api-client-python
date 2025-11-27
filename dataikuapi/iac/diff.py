@@ -39,21 +39,25 @@ class DiffEngine:
 
         # Resources added
         for resource_id in new_ids - old_ids:
-            diffs.append(ResourceDiff(
-                change_type=ChangeType.ADDED,
-                resource_id=resource_id,
-                resource_type=new_state.resources[resource_id].resource_type,
-                new_resource=new_state.resources[resource_id]
-            ))
+            diffs.append(
+                ResourceDiff(
+                    change_type=ChangeType.ADDED,
+                    resource_id=resource_id,
+                    resource_type=new_state.resources[resource_id].resource_type,
+                    new_resource=new_state.resources[resource_id],
+                )
+            )
 
         # Resources removed
         for resource_id in old_ids - new_ids:
-            diffs.append(ResourceDiff(
-                change_type=ChangeType.REMOVED,
-                resource_id=resource_id,
-                resource_type=old_state.resources[resource_id].resource_type,
-                old_resource=old_state.resources[resource_id]
-            ))
+            diffs.append(
+                ResourceDiff(
+                    change_type=ChangeType.REMOVED,
+                    resource_id=resource_id,
+                    resource_type=old_state.resources[resource_id].resource_type,
+                    old_resource=old_state.resources[resource_id],
+                )
+            )
 
         # Resources potentially modified
         for resource_id in old_ids & new_ids:
@@ -63,27 +67,30 @@ class DiffEngine:
             if old_resource.has_changed(new_resource):
                 # Detailed attribute diff
                 attr_diffs = self._diff_attributes(
-                    old_resource.attributes,
-                    new_resource.attributes
+                    old_resource.attributes, new_resource.attributes
                 )
 
-                diffs.append(ResourceDiff(
-                    change_type=ChangeType.MODIFIED,
-                    resource_id=resource_id,
-                    resource_type=new_resource.resource_type,
-                    old_resource=old_resource,
-                    new_resource=new_resource,
-                    attribute_diffs=attr_diffs
-                ))
+                diffs.append(
+                    ResourceDiff(
+                        change_type=ChangeType.MODIFIED,
+                        resource_id=resource_id,
+                        resource_type=new_resource.resource_type,
+                        old_resource=old_resource,
+                        new_resource=new_resource,
+                        attribute_diffs=attr_diffs,
+                    )
+                )
             else:
                 # Unchanged (optional: exclude from output)
-                diffs.append(ResourceDiff(
-                    change_type=ChangeType.UNCHANGED,
-                    resource_id=resource_id,
-                    resource_type=new_resource.resource_type,
-                    old_resource=old_resource,
-                    new_resource=new_resource
-                ))
+                diffs.append(
+                    ResourceDiff(
+                        change_type=ChangeType.UNCHANGED,
+                        resource_id=resource_id,
+                        resource_type=new_resource.resource_type,
+                        old_resource=old_resource,
+                        new_resource=new_resource,
+                    )
+                )
 
         return diffs
 
@@ -97,11 +104,7 @@ class DiffEngine:
         old_keys = set(old_attrs.keys())
         new_keys = set(new_attrs.keys())
 
-        result = {
-            "added": {},
-            "removed": {},
-            "modified": {}
-        }
+        result = {"added": {}, "removed": {}, "modified": {}}
 
         # Added attributes
         for key in new_keys - old_keys:
@@ -114,10 +117,7 @@ class DiffEngine:
         # Modified attributes
         for key in old_keys & new_keys:
             if old_attrs[key] != new_attrs[key]:
-                result["modified"][key] = {
-                    "old": old_attrs[key],
-                    "new": new_attrs[key]
-                }
+                result["modified"][key] = {"old": old_attrs[key], "new": new_attrs[key]}
 
         return result
 
@@ -128,20 +128,16 @@ class DiffEngine:
         Returns:
             Dict with counts: {added: N, removed: N, modified: N, unchanged: N}
         """
-        summary = {
-            "added": 0,
-            "removed": 0,
-            "modified": 0,
-            "unchanged": 0
-        }
+        summary = {"added": 0, "removed": 0, "modified": 0, "unchanged": 0}
 
         for diff in diffs:
             summary[diff.change_type.value] += 1
 
         return summary
 
-    def format_output(self, diffs: List[ResourceDiff],
-                     include_unchanged: bool = False) -> str:
+    def format_output(
+        self, diffs: List[ResourceDiff], include_unchanged: bool = False
+    ) -> str:
         """
         Format diffs for human readability.
 

@@ -7,7 +7,6 @@ Generates execution plan by comparing configuration against current state.
 import sys
 import argparse
 from pathlib import Path
-from typing import Optional
 
 from ..config.parser import ConfigParser
 from ..config.validator import ConfigValidator
@@ -20,7 +19,6 @@ from ..exceptions import (
     ConfigParseError,
     ConfigValidationError,
     BuildError,
-    StateNotFoundError
 )
 
 
@@ -43,37 +41,25 @@ Examples:
   %(prog)s -c project.yml -e dev
   %(prog)s -c config/ -e prod --no-color
   %(prog)s -c project.yml --state-file custom.state.json
-        """
+        """,
     )
 
     parser.add_argument(
-        "-c", "--config",
-        required=True,
-        help="Path to configuration file or directory"
+        "-c", "--config", required=True, help="Path to configuration file or directory"
     )
 
     parser.add_argument(
-        "-e", "--environment",
-        default="dev",
-        help="Target environment (default: dev)"
+        "-e", "--environment", default="dev", help="Target environment (default: dev)"
     )
 
     parser.add_argument(
         "--state-file",
-        help="Path to state file (default: .dataiku/state/{env}.state.json)"
+        help="Path to state file (default: .dataiku/state/{env}.state.json)",
     )
 
-    parser.add_argument(
-        "--no-color",
-        action="store_true",
-        help="Disable color output"
-    )
+    parser.add_argument("--no-color", action="store_true", help="Disable color output")
 
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     parsed_args = parser.parse_args(args)
 
@@ -94,7 +80,9 @@ Examples:
             return 1
 
         if parsed_args.verbose:
-            print(f"✓ Parsed config for project: {config.project.key if config.project else '(no project)'}")
+            print(
+                f"✓ Parsed config for project: {config.project.key if config.project else '(no project)'}"
+            )
 
         # Validate config
         if parsed_args.verbose:
@@ -117,7 +105,9 @@ Examples:
         desired_state = builder.build(config)
 
         if parsed_args.verbose:
-            print(f"✓ Built desired state with {len(desired_state.resources)} resources")
+            print(
+                f"✓ Built desired state with {len(desired_state.resources)} resources"
+            )
 
         # Load current state
         if parsed_args.verbose:
@@ -173,6 +163,7 @@ Examples:
         print(f"Unexpected error: {e}", file=sys.stderr)
         if parsed_args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

@@ -32,7 +32,7 @@ class DatasetSync(ResourceSync):
             ValueError: If resource_id format is invalid
         """
         # Parse resource_id
-        parts = resource_id.split('.')
+        parts = resource_id.split(".")
         if len(parts) != 3 or parts[0] != "dataset":
             raise ValueError(f"Invalid dataset resource_id: {resource_id}")
 
@@ -61,14 +61,14 @@ class DatasetSync(ResourceSync):
             metadata = ResourceMetadata(
                 deployed_at=datetime.utcnow(),
                 deployed_by="system",
-                dataiku_internal_id=dataset_name  # Datasets use name within project
+                dataiku_internal_id=dataset_name,  # Datasets use name within project
             )
 
             return Resource(
                 resource_type="dataset",
                 resource_id=resource_id,
                 attributes=attributes,
-                metadata=metadata
+                metadata=metadata,
             )
 
         except Exception as e:

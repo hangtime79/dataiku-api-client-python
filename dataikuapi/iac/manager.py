@@ -2,7 +2,6 @@
 State Manager - Main orchestrator for Dataiku IaC state management.
 """
 
-from typing import Optional, List
 from dataikuapi import DSSClient
 
 from .models.state import State, Resource, make_resource_id
@@ -10,7 +9,6 @@ from .backends.base import StateBackend
 from .sync.project import ProjectSync
 from .sync.dataset import DatasetSync
 from .sync.recipe import RecipeSync
-from .exceptions import ResourceNotFoundError
 
 
 class StateManager:
@@ -36,10 +34,7 @@ class StateManager:
         >>> manager.save_state(state)
     """
 
-    def __init__(self,
-                 backend: StateBackend,
-                 client: DSSClient,
-                 environment: str):
+    def __init__(self, backend: StateBackend, client: DSSClient, environment: str):
         """
         Initialize StateManager.
 
@@ -114,7 +109,7 @@ class StateManager:
         Example:
             >>> resource = manager.sync_resource("dataset.MY_PROJECT.CUSTOMERS")
         """
-        resource_type = resource_id.split('.')[0]
+        resource_type = resource_id.split(".")[0]
 
         if resource_type not in self._sync_registry:
             raise ValueError(f"Unknown resource type: {resource_type}")

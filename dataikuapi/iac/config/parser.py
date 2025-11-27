@@ -123,20 +123,23 @@ class ConfigParser:
         datasets_dir = path / "datasets"
         if datasets_dir.exists():
             if not datasets_dir.is_dir():
-                raise ConfigParseError(f"datasets path is not a directory: {datasets_dir}")
+                raise ConfigParseError(
+                    f"datasets path is not a directory: {datasets_dir}"
+                )
 
             dataset_configs = self._parse_yaml_files(datasets_dir)
             for ds_data in dataset_configs:
                 # Merge datasets into config
-                for ds in ds_data.get('datasets', []):
+                for ds in ds_data.get("datasets", []):
                     from .models import DatasetConfig
+
                     dataset = DatasetConfig(
-                        name=ds['name'],
-                        type=ds['type'],
-                        connection=ds.get('connection'),
-                        params=ds.get('params', {}),
-                        schema=ds.get('schema'),
-                        format_type=ds.get('format_type')
+                        name=ds["name"],
+                        type=ds["type"],
+                        connection=ds.get("connection"),
+                        params=ds.get("params", {}),
+                        schema=ds.get("schema"),
+                        format_type=ds.get("format_type"),
                     )
                     config.datasets.append(dataset)
 
@@ -144,20 +147,23 @@ class ConfigParser:
         recipes_dir = path / "recipes"
         if recipes_dir.exists():
             if not recipes_dir.is_dir():
-                raise ConfigParseError(f"recipes path is not a directory: {recipes_dir}")
+                raise ConfigParseError(
+                    f"recipes path is not a directory: {recipes_dir}"
+                )
 
             recipe_configs = self._parse_yaml_files(recipes_dir)
             for rec_data in recipe_configs:
                 # Merge recipes into config
-                for rec in rec_data.get('recipes', []):
+                for rec in rec_data.get("recipes", []):
                     from .models import RecipeConfig
+
                     recipe = RecipeConfig(
-                        name=rec['name'],
-                        type=rec['type'],
-                        inputs=rec.get('inputs', []),
-                        outputs=rec.get('outputs', []),
-                        params=rec.get('params', {}),
-                        code=rec.get('code')
+                        name=rec["name"],
+                        type=rec["type"],
+                        inputs=rec.get("inputs", []),
+                        outputs=rec.get("outputs", []),
+                        params=rec.get("params", {}),
+                        code=rec.get("code"),
                     )
                     config.recipes.append(recipe)
 

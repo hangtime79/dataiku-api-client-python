@@ -5,7 +5,6 @@ Converts declarative configuration (Config objects) into internal State model
 that can be compared with current Dataiku state.
 """
 
-from typing import Dict, Any
 from datetime import datetime
 
 from .models import Config, ProjectConfig, DatasetConfig, RecipeConfig
@@ -89,21 +88,21 @@ class DesiredStateBuilder:
             "projectKey": cfg.key,
             "name": cfg.name,
             "description": cfg.description,
-            "settings": cfg.settings
+            "settings": cfg.settings,
         }
 
         metadata = ResourceMetadata(
             deployed_at=datetime.utcnow(),
             deployed_by="config",
             dataiku_internal_id=None,
-            checksum=""
+            checksum="",
         )
 
         return Resource(
             resource_id=resource_id,
             resource_type="project",
             attributes=attributes,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def _build_dataset(self, cfg: DatasetConfig, project_key: str) -> Resource:
@@ -119,11 +118,7 @@ class DesiredStateBuilder:
         """
         resource_id = make_resource_id("dataset", project_key, cfg.name)
 
-        attributes = {
-            "name": cfg.name,
-            "type": cfg.type,
-            "params": cfg.params
-        }
+        attributes = {"name": cfg.name, "type": cfg.type, "params": cfg.params}
 
         # Add optional attributes if present
         if cfg.connection:
@@ -137,14 +132,14 @@ class DesiredStateBuilder:
             deployed_at=datetime.utcnow(),
             deployed_by="config",
             dataiku_internal_id=None,
-            checksum=""
+            checksum="",
         )
 
         return Resource(
             resource_id=resource_id,
             resource_type="dataset",
             attributes=attributes,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def _build_recipe(self, cfg: RecipeConfig, project_key: str) -> Resource:
@@ -165,7 +160,7 @@ class DesiredStateBuilder:
             "type": cfg.type,
             "inputs": cfg.inputs,
             "outputs": cfg.outputs,
-            "params": cfg.params
+            "params": cfg.params,
         }
 
         # Add code if present (for code recipes like python/sql)
@@ -176,12 +171,12 @@ class DesiredStateBuilder:
             deployed_at=datetime.utcnow(),
             deployed_by="config",
             dataiku_internal_id=None,
-            checksum=""
+            checksum="",
         )
 
         return Resource(
             resource_id=resource_id,
             resource_type="recipe",
             attributes=attributes,
-            metadata=metadata
+            metadata=metadata,
         )

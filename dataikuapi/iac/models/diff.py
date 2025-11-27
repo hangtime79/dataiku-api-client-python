@@ -13,12 +13,14 @@ from typing import Optional
 # Import Resource for type hints
 # Use TYPE_CHECKING to avoid circular imports
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .state import Resource
 
 
 class ChangeType(Enum):
     """Type of change"""
+
     ADDED = "added"
     REMOVED = "removed"
     MODIFIED = "modified"
@@ -28,11 +30,12 @@ class ChangeType(Enum):
 @dataclass
 class ResourceDiff:
     """Represents a change to a resource"""
+
     change_type: ChangeType
     resource_id: str
     resource_type: str
-    old_resource: Optional['Resource'] = None
-    new_resource: Optional['Resource'] = None
+    old_resource: Optional["Resource"] = None
+    new_resource: Optional["Resource"] = None
     attribute_diffs: dict = None
 
     def __str__(self) -> str:

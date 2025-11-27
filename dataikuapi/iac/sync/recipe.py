@@ -32,7 +32,7 @@ class RecipeSync(ResourceSync):
             ValueError: If resource_id format is invalid
         """
         # Parse resource_id
-        parts = resource_id.split('.')
+        parts = resource_id.split(".")
         if len(parts) != 3 or parts[0] != "recipe":
             raise ValueError(f"Invalid recipe resource_id: {resource_id}")
 
@@ -53,7 +53,7 @@ class RecipeSync(ResourceSync):
             if recipe_type in ["python", "sql", "r"]:
                 try:
                     payload = recipe.get_payload()
-                except:
+                except Exception:
                     payload = None
 
             # Build attributes dict
@@ -74,14 +74,14 @@ class RecipeSync(ResourceSync):
             metadata = ResourceMetadata(
                 deployed_at=datetime.utcnow(),
                 deployed_by="system",
-                dataiku_internal_id=recipe_name
+                dataiku_internal_id=recipe_name,
             )
 
             return Resource(
                 resource_type="recipe",
                 resource_id=resource_id,
                 attributes=attributes,
-                metadata=metadata
+                metadata=metadata,
             )
 
         except Exception as e:

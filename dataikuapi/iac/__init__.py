@@ -5,7 +5,14 @@ This module provides infrastructure-as-code capabilities for Dataiku,
 including state management, resource synchronization, and diff detection.
 """
 
-from .models import State, Resource, ResourceMetadata, make_resource_id, ChangeType, ResourceDiff
+from .models import (
+    State,
+    Resource,
+    ResourceMetadata,
+    make_resource_id,
+    ChangeType,
+    ResourceDiff,
+)
 from .diff import DiffEngine
 from .manager import StateManager
 from .config import (
@@ -35,36 +42,36 @@ from .exceptions import (
 
 __all__ = [
     # Models
-    'State',
-    'Resource',
-    'ResourceMetadata',
-    'make_resource_id',
-    'ChangeType',
-    'ResourceDiff',
+    "State",
+    "Resource",
+    "ResourceMetadata",
+    "make_resource_id",
+    "ChangeType",
+    "ResourceDiff",
     # Config Models
-    'ProjectConfig',
-    'DatasetConfig',
-    'RecipeConfig',
-    'Config',
-    'ConfigParser',
+    "ProjectConfig",
+    "DatasetConfig",
+    "RecipeConfig",
+    "Config",
+    "ConfigParser",
     # Diff Engine
-    'DiffEngine',
+    "DiffEngine",
     # State Manager
-    'StateManager',
+    "StateManager",
     # Config Builder
-    'DesiredStateBuilder',
+    "DesiredStateBuilder",
     # Planner
-    'ActionType',
-    'PlannedAction',
-    'ExecutionPlan',
-    'PlanGenerator',
+    "ActionType",
+    "PlannedAction",
+    "ExecutionPlan",
+    "PlanGenerator",
     # Exceptions
-    'DataikuIaCError',
-    'StateNotFoundError',
-    'StateCorruptedError',
-    'StateWriteError',
-    'ResourceNotFoundError',
-    'ConfigParseError',
-    'ConfigValidationError',
-    'BuildError',
+    "DataikuIaCError",
+    "StateNotFoundError",
+    "StateCorruptedError",
+    "StateWriteError",
+    "ResourceNotFoundError",
+    "ConfigParseError",
+    "ConfigValidationError",
+    "BuildError",
 ]

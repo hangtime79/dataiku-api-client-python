@@ -14,7 +14,7 @@ from dataikuapi.iac.models.state import State
 from dataikuapi.iac.exceptions import (
     StateNotFoundError,
     StateCorruptedError,
-    StateWriteError
+    StateWriteError,
 )
 
 
@@ -67,7 +67,7 @@ class LocalFileBackend(StateBackend):
             raise StateNotFoundError(f"State file not found: {self.state_file}")
 
         try:
-            with open(self.state_file, 'r') as f:
+            with open(self.state_file, "r") as f:
                 data = json.load(f)
 
             # TODO: Add JSON Schema validation here (Package 8)
@@ -102,8 +102,8 @@ class LocalFileBackend(StateBackend):
                 self.backup(suffix=f"pre-serial-{state.serial}")
 
             # Write to temp file first (atomic write pattern)
-            temp_file = self.state_file.with_suffix('.tmp')
-            with open(temp_file, 'w') as f:
+            temp_file = self.state_file.with_suffix(".tmp")
+            with open(temp_file, "w") as f:
                 json.dump(state.to_dict(), f, indent=2)
 
             # Atomic rename - this is atomic on POSIX systems
@@ -111,7 +111,7 @@ class LocalFileBackend(StateBackend):
 
         except Exception as e:
             # Clean up temp file if it exists
-            temp_file = self.state_file.with_suffix('.tmp')
+            temp_file = self.state_file.with_suffix(".tmp")
             if temp_file.exists():
                 temp_file.unlink()
             raise StateWriteError(f"Failed to save state: {e}")
@@ -169,7 +169,7 @@ class LocalFileBackend(StateBackend):
             raise StateNotFoundError(f"No state to backup: {self.state_file}")
 
         # Generate backup filename
-        backup_file = self.state_file.with_suffix(f'.{suffix}.json')
+        backup_file = self.state_file.with_suffix(f".{suffix}.json")
 
         # Copy state file to backup
         shutil.copy2(self.state_file, backup_file)
