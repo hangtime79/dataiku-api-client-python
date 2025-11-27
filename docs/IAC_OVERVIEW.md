@@ -1,7 +1,7 @@
 # Infrastructure as Code (IaC) Overview
 
-**Status:** 🚧 Experimental (Waves 2-3 Complete: State Management + Plan Generation)
-**Version:** 0.3.0 (Week 2 Complete)
+**Status:** 🚧 Experimental (Waves 1-3 Complete: State + Plan + Tests)
+**Version:** 0.3.0 (Comprehensive Testing Complete)
 **Target Users:** DevOps Engineers, Platform Teams, GitOps Practitioners
 
 ---
@@ -67,7 +67,7 @@ python -m dataikuapi.iac.cli.plan -c project.yml -e prod
 #
 # Plan: 4 to create, 0 to update, 0 to destroy.
 
-# Apply changes (coming in Week 3)
+# Apply changes (coming in Wave 4)
 # python -m dataikuapi.iac.cli.apply -c project.yml -e prod
 ```
 
@@ -160,7 +160,7 @@ recipes:
 
 ### ✅ Complete (Available Now)
 
-#### Week 1: State Management
+#### Wave 1: State Management
 - ✅ **State models** - Resource, State, StateMetadata
 - ✅ **State backends** - Local file storage (JSON)
 - ✅ **State sync** - ProjectSync, DatasetSync, RecipeSync
@@ -168,7 +168,7 @@ recipes:
 - ✅ **State manager** - Save/load/sync orchestration
 - **Test Coverage:** >90% (171 tests passing)
 
-#### Week 2: Plan Generation
+#### Wave 2: Plan Generation
 - ✅ **Config parser** - YAML file/directory parsing
 - ✅ **Config validator** - Syntax, naming, references, dependencies
 - ✅ **Desired state builder** - Convert YAML to State objects
@@ -177,11 +177,18 @@ recipes:
 - ✅ **CLI integration** - `python -m dataikuapi.iac.cli.plan`
 - **Test Coverage:** 85% (107 tests passing)
 
-**Combined:** 278 tests, 98% pass rate
+#### Wave 3: Comprehensive Testing
+- ✅ **Unit tests** - Individual component testing
+- ✅ **Integration tests** - End-to-end workflow testing
+- ✅ **Scenario tests** - Real-world use case testing
+- ✅ **Real Dataiku tests** - Integration with actual DSS instances
+- **Test Coverage:** 278+ tests, 98% pass rate
+
+**Status:** Waves 1-3 complete. Plan generation fully functional.
 
 ---
 
-### 🚧 In Progress (Week 3)
+### 🚧 Next Up (Wave 4)
 
 #### Apply Execution
 - ⏳ Apply engine with checkpointing
@@ -189,21 +196,25 @@ recipes:
 - ⏳ Rollback on failure
 - ⏳ Progress reporting
 - ⏳ Dry-run mode
+- ⏳ State update after successful apply
 
 ---
 
-### 📅 Planned (Week 4+)
+### 📅 Planned (Wave 5+)
 
 #### Enhanced Workflow
 - ⏳ State refresh from Dataiku
 - ⏳ Import existing projects to YAML
 - ⏳ Drift detection and reporting
 - ⏳ State locking for team collaboration
+- ⏳ Destroy command for cleanup
 
 #### Future Phases
+- ⏳ Additional resource types (scenarios, models, connections)
 - ⏳ Remote state backends (S3, Git)
 - ⏳ CI/CD integration templates (GitHub Actions, GitLab CI)
 - ⏳ Govern approval workflows
+- ⏳ Advanced templating (Jinja2, modules)
 - ⏳ Testing framework for pipelines
 - ⏳ Module system for reusable configs
 
@@ -264,10 +275,10 @@ python -m dataikuapi.iac.cli.plan -c my_project.yml -e dev
 # Plan: 2 to create, 0 to update, 0 to destroy.
 ```
 
-### 4. Apply Changes (Coming in Week 3)
+### 4. Apply Changes (Coming in Wave 4)
 
 ```bash
-# Not yet available - Week 3 deliverable
+# Not yet available - Wave 4 deliverable
 # python -m dataikuapi.iac.cli.apply -c my_project.yml -e dev
 ```
 
@@ -313,7 +324,7 @@ python -m dataikuapi.iac.cli.plan -c my_project.yml -e dev
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 7. Apply (Week 3) 🚧                                        │
+│ 7. Apply (Wave 4) 🚧                                        │
 │    ApplyEngine → Execute actions → Update Dataiku           │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -675,13 +686,14 @@ python -m dataikuapi.iac.cli.plan -c project.yml -e prod
 
 ## Limitations & Gotchas
 
-### Current Limitations (Week 2)
+### Current Limitations (Wave 3)
 
-1. **Apply not available** - Can plan but not execute (coming Week 3)
-2. **Limited resource types** - Only projects, datasets, recipes (scenarios/models coming)
+1. **Apply not available** - Can plan but not execute (coming Wave 4)
+2. **Limited resource types** - Only projects, datasets, recipes (scenarios/models coming in future waves)
 3. **No remote state** - Local file only (S3/Git coming later)
 4. **No state locking** - Team collaboration requires coordination
 5. **No import** - Can't import existing projects to YAML yet
+6. **No destroy** - Can't remove infrastructure yet
 
 ### Known Gotchas
 
@@ -740,16 +752,16 @@ A: Use IaC for infrastructure management in Git (GitOps). Use API for scripts an
 A: Yes, but be careful. IaC manages state, so manual API changes can cause drift. Prefer one approach per resource.
 
 **Q: Is IaC production-ready?**
-A: Not yet (experimental). Week 3 (apply) is needed for full workflow. Use for testing and development only.
+A: Not yet (experimental). Wave 4 (apply) is needed for full workflow. Use for testing and development only.
 
 **Q: When will apply be available?**
-A: Week 3 is in progress. Expected soon.
+A: Wave 4 is being planned. See Wave 4 planning documents for details.
 
 **Q: Can I import existing projects to YAML?**
 A: Not yet. Coming in Week 4+ roadmap.
 
 **Q: Does IaC support scenarios, models, ML?**
-A: Not yet. Currently projects, datasets, recipes only. More resource types coming in future phases.
+A: Not yet. Currently projects, datasets, recipes only. More resource types coming in future waves (Wave 5+).
 
 **Q: How does state locking work for teams?**
 A: Not implemented yet. For now, coordinate manually or use separate state files.
@@ -759,7 +771,7 @@ A: Basic templating with `{{ env.VAR }}` works. More advanced templating coming 
 
 ---
 
-**Version:** 1.0
-**Last Updated:** 2025-11-26
-**IaC Status:** Week 2 Complete (Plan Generation)
-**Next Milestone:** Week 3 (Apply Execution)
+**Version:** 1.1
+**Last Updated:** 2025-11-27
+**IaC Status:** Waves 1-3 Complete (State + Plan + Comprehensive Tests)
+**Next Milestone:** Wave 4 (Apply Execution)

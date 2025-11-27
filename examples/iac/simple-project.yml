@@ -1,0 +1,24 @@
+# Simple Project Example
+#
+# This is the most basic example - one project, one dataset.
+# Perfect for testing IaC or learning the YAML format.
+#
+# Usage:
+#   python -m dataikuapi.iac.cli.plan -c simple-project.yml -e dev
+
+version: "1.0"
+
+metadata:
+  description: "Minimal example for learning Dataiku IaC"
+  author: "DevOps Team"
+
+project:
+  key: SIMPLE_PROJECT
+  name: Simple Project
+  description: A minimal IaC project with one dataset
+
+datasets:
+  - name: SAMPLE_DATA
+    type: managed
+    format_type: csv
+    description: Sample dataset for testing
