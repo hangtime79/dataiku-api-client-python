@@ -19,7 +19,7 @@ def mock_dss_client():
 
 
 @pytest.fixture
-def mock_project():
+def mock_project(mock_zone, sample_flow_graph):
     """
     Mock DSSProject for testing.
 
@@ -33,9 +33,20 @@ def mock_project():
         "description": "Test project for discovery",
     }
 
-    # Mock flow
+    # Mock flow with comprehensive setup
     flow = Mock()
+    flow.get_zones.return_value = [
+        {"name": "test_zone"},
+        {"name": "zone2"},
+    ]
+    flow.get_zone.return_value = mock_zone
+    flow.get_graph.return_value = sample_flow_graph
     project.get_flow.return_value = flow
+
+    # Mock dataset operations
+    dataset = Mock()
+    dataset.name = "TEST_DATASET"
+    project.get_dataset.return_value = dataset
 
     return project
 
@@ -53,10 +64,12 @@ def mock_zone():
     zone.name = "Test Zone"
 
     # Mock zone items
-    zone.get_items.return_value = {
-        "datasets": ["ds1", "ds2"],
-        "recipes": ["recipe1"],
-    }
+    zone.items = [
+        {"type": "DATASET", "id": "ds1"},
+        {"type": "DATASET", "id": "ds2"},
+        {"type": "RECIPE", "id": "recipe1"},
+    ]
+    zone.get_items.return_value = zone.items
 
     return zone
 
