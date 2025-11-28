@@ -1,0 +1,99 @@
+# Example 6: Solution Block
+#
+# This example shows how to use a solution block - a pre-composed
+# collection of blocks that work together for a complete use case.
+#
+# Solution blocks encapsulate best-practice patterns:
+# - Feature engineering -> Anomaly detection -> Alerting
+# - All wiring is pre-configured inside the solution
+# - You only need to map external inputs/outputs
+#
+# Use case: Deploy a complete compressor monitoring solution
+# without understanding the internal block composition.
+
+version: "1.0"
+
+project:
+  key: SOLUTION_BLOCK_EXAMPLE
+  name: "Compressor Monitoring Solution"
+  description: "Complete monitoring solution from solution block"
+
+# Solution blocks are referenced in the 'solutions' section
+solutions:
+  - ref: "BLOCKS_REGISTRY/COMPRESSOR_MONITORING_SOLUTION@1.0.0"
+    instance_name: monitoring_solution
+    zone_prefix: monitoring   # Creates: monitoring_feature_zone, monitoring_anomaly_zone, etc.
+
+    # Map external data to solution's inputs
+    inputs:
+      RAW_SENSOR_DATA: compressor_sensors
+      EQUIPMENT_REGISTRY: equipment_master
+
+    # Map solution's outputs to our destinations
+    outputs:
+      ANOMALY_ALERTS: real_time_alerts
+      HEALTH_SCORES: equipment_health_dashboard
+      PREDICTIONS: failure_predictions
+
+    # Optional: Override specific contained blocks
+    block_overrides:
+      # Override the feature engineering block inside the solution
+      FEATURE_ENG:
+        extends:
+          - recipe: signal_smoothing
+            use_class: custom_processing.AdaptiveSmoother
+            class_config:
+              adaptive_window: true
+
+      # Override anomaly thresholds in the detection block
+      ANOMALY_DET:
+        extends:
+          - recipe: threshold_compute
+            use_class: custom_processing.DynamicThresholds
+            class_config:
+              baseline_days: 30
+              sensitivity: 0.95
+
+datasets:
+  # External inputs
+  - name: compressor_sensors
+    type: sql_table
+    connection: WAREHOUSE
+    table: compressor_sensor_readings
+    comment: "Real-time sensor data from compressors"
+
+  - name: equipment_master
+    type: sql_table
+    connection: WAREHOUSE
+    table: equipment_registry
+    comment: "Equipment metadata and specifications"
+
+  # External outputs
+  - name: real_time_alerts
+    type: sql_table
+    connection: WAREHOUSE
+    table: compressor_alerts
+    comment: "Alerts pushed to operations dashboard"
+
+  - name: equipment_health_dashboard
+    type: sql_table
+    connection: WAREHOUSE
+    table: equipment_health_scores
+    comment: "Health scores for monitoring dashboard"
+
+  - name: failure_predictions
+    type: sql_table
+    connection: WAREHOUSE
+    table: failure_predictions
+    comment: "Predicted failures for maintenance planning"
+
+# Scenario for automated refresh
+scenarios:
+  - name: daily_monitoring_refresh
+    triggers:
+      - type: time
+        cron: "0 6 * * *"  # Daily at 6 AM
+    steps:
+      - type: build
+        dataset: real_time_alerts
+        build_mode: RECURSIVE

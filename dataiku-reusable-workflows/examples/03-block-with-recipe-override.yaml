@@ -1,0 +1,92 @@
+# Example 3: Block with Recipe Override
+#
+# This example shows how to customize a block by replacing
+# one of its recipes with your own implementation.
+#
+# Use case: You want to use the standard feature engineering block
+# but need a custom signal smoothing algorithm for your equipment.
+
+version: "1.0"
+
+project:
+  key: RECIPE_OVERRIDE_EXAMPLE
+  name: "Block with Recipe Override"
+  description: "Custom smoothing algorithm for specific equipment"
+
+blocks:
+  - ref: "BLOCKS_REGISTRY/COMPRESSOR_FEATURE_ENG@1.2.0"
+    instance_name: custom_feature_instance
+    zone_name: custom_feature_zone
+    inputs:
+      RAW_VIBRATION: compressor_sensor_data
+    outputs:
+      VIBRATION_FEATURES: custom_features
+    extends:
+      # Override the signal_smoothing recipe with our custom implementation
+      - recipe: signal_smoothing
+        override_with: custom_kalman_smoothing
+
+datasets:
+  - name: compressor_sensor_data
+    type: sql_table
+    connection: WAREHOUSE
+    table: compressor_vibration
+
+  - name: custom_features
+    type: managed
+    format_type: parquet
+
+# Define the custom recipe that overrides the block's recipe
+recipes:
+  - name: custom_kalman_smoothing
+    type: python
+    inputs:
+      - ref: RAW_VIBRATION
+        role: main
+    outputs:
+      - ref: SMOOTHED_SIGNAL
+        role: main
+    code: |
+      # Custom Kalman filter implementation for our specific equipment
+      import dataiku
+      import pandas as pd
+      import numpy as np
+      from scipy.signal import butter, filtfilt
+
+      # Read input
+      input_dataset = dataiku.Dataset("RAW_VIBRATION")
+      df = input_dataset.get_dataframe()
+
+      # Custom Kalman smoothing parameters for this equipment type
+      process_variance = 1e-5
+      measurement_variance = 0.1 ** 2
+
+      def kalman_smooth(signal):
+          n = len(signal)
+          posteri_estimate = np.zeros(n)
+          posteri_error = np.zeros(n)
+          priori_estimate = np.zeros(n)
+          priori_error = np.zeros(n)
+          K = np.zeros(n)
+
+          posteri_estimate[0] = signal[0]
+          posteri_error[0] = 1.0
+
+          for k in range(1, n):
+              priori_estimate[k] = posteri_estimate[k-1]
+              priori_error[k] = posteri_error[k-1] + process_variance
+
+              K[k] = priori_error[k] / (priori_error[k] + measurement_variance)
+              posteri_estimate[k] = priori_estimate[k] + K[k] * (signal[k] - priori_estimate[k])
+              posteri_error[k] = (1 - K[k]) * priori_error[k]
+
+          return posteri_estimate
+
+      # Apply smoothing to each sensor
+      for col in df.select_dtypes(include=[np.number]).columns:
+          if col not in ['TIMESTAMP', 'SENSOR_ID']:
+              df[f'{col}_SMOOTHED'] = df.groupby('SENSOR_ID')[col].transform(kalman_smooth)
+
+      # Write output
+      output_dataset = dataiku.Dataset("SMOOTHED_SIGNAL")
+      output_dataset.write_with_schema(df)

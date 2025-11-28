@@ -35,7 +35,7 @@ def mock_project(mock_zone, sample_flow_graph):
 
     # Mock flow with comprehensive setup
     flow = Mock()
-    flow.get_zones.return_value = [
+    flow.list_zones.return_value = [
         {"name": "test_zone"},
         {"name": "zone2"},
     ]

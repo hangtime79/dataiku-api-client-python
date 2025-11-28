@@ -66,17 +66,26 @@ class FlowCrawler:
             ['ingestion', 'processing', 'output']
         """
         flow = self.get_project_flow(project_key)
-        zones_data = flow.get_zones()
+        zones_data = flow.list_zones()
 
-        # Extract zone names from zones data
-        zone_names = []
+        # Extract zone IDs from zones data
+        # In real Dataiku API, zones have .id and .name attributes
+        zone_ids = []
         for zone in zones_data:
             if isinstance(zone, dict) and "name" in zone:
-                zone_names.append(zone["name"])
+                # Mock format: dict with "name" key
+                zone_ids.append(zone["name"])
+            elif hasattr(zone, "id"):
+                # Real Dataiku format: DSSFlowZone object with .id attribute
+                zone_ids.append(zone.id)
             elif hasattr(zone, "name"):
-                zone_names.append(zone.name)
+                # Fallback to name if no id
+                zone_ids.append(zone.name)
+            elif isinstance(zone, str):
+                # Zone identifier already a string
+                zone_ids.append(zone)
 
-        return zone_names
+        return zone_ids
 
     def get_zone_items(self, project_key: str, zone_name: str) -> Dict[str, List[str]]:
         """
@@ -84,7 +93,7 @@ class FlowCrawler:
 
         Args:
             project_key: Project identifier
-            zone_name: Zone name
+            zone_name: Zone identifier (can be zone ID or name)
 
         Returns:
             Dictionary with 'datasets' and 'recipes' keys containing lists of names
@@ -98,7 +107,7 @@ class FlowCrawler:
             }
         """
         flow = self.get_project_flow(project_key)
-        zone = flow.get_zone(zone_name)
+        zone = flow.get_zone(zone_name)  # zone_name can be zone ID or name
 
         datasets = []
         recipes = []

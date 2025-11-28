@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dataiku.com/schemas/reusable-workflows/block-reference.schema.json",
+  "title": "Block Reference",
+  "description": "Schema for a block reference in IaC configuration",
+  "type": "object",
+  "required": ["ref"],
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Block reference in format REGISTRY/BLOCK_ID@VERSION",
+      "pattern": "^[A-Z_]+/[A-Z_]+(@[0-9]+\\.[0-9]+\\.[0-9]+|@latest)?$",
+      "examples": [
+        "BLOCKS_REGISTRY/FEATURE_ENG@1.2.0",
+        "BLOCKS_REGISTRY/ANOMALY_DET@latest",
+        "BLOCKS_REGISTRY/MY_BLOCK"
+      ]
+    },
+    "instance_name": {
+      "type": "string",
+      "description": "Local instance name for this block instantiation",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "examples": ["feature_instance", "anomaly_detector_1"]
+    },
+    "zone_name": {
+      "type": "string",
+      "description": "Name of the zone to create for this block",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "examples": ["feature_zone", "anomaly_detection_zone"]
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Mapping of block input port names to dataset names",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Dataset name to wire to this input port"
+      },
+      "examples": [
+        {"RAW_DATA": "source_sensors", "METADATA": "equipment_info"}
+      ]
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Mapping of block output port names to dataset names",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Dataset name to expose from this output port"
+      },
+      "examples": [
+        {"FEATURES": "computed_features", "ANOMALIES": "detected_anomalies"}
+      ]
+    },
+    "extends": {
+      "type": "array",
+      "description": "List of extensions to apply to block recipes",
+      "items": {
+        "$ref": "#/definitions/extension"
+      }
+    }
+  },
+  "definitions": {
+    "extension": {
+      "type": "object",
+      "description": "Extension configuration for overriding block behavior",
+      "required": ["recipe"],
+      "properties": {
+        "recipe": {
+          "type": "string",
+          "description": "Name of the recipe in the block to extend"
+        },
+        "override_with": {
+          "type": "string",
+          "description": "Name of custom recipe to use instead (recipe override)"
+        },
+        "use_class": {
+          "type": "string",
+          "description": "Fully qualified class name to inject (class override)",
+          "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*\\.[A-Z][a-zA-Z0-9]*$"
+        },
+        "class_config": {
+          "type": "object",
+          "description": "Configuration to pass to the injected class constructor",
+          "additionalProperties": true
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["override_with"],
+          "not": {"required": ["use_class"]}
+        },
+        {
+          "required": ["use_class"],
+          "not": {"required": ["override_with"]}
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "ref": "BLOCKS_REGISTRY/FEATURE_ENG@1.2.0",
+      "instance_name": "feature_instance",
+      "zone_name": "feature_zone",
+      "inputs": {
+        "RAW_DATA": "source_sensors"
+      },
+      "outputs": {
+        "FEATURES": "computed_features"
+      }
+    },
+    {
+      "ref": "BLOCKS_REGISTRY/FEATURE_ENG@1.2.0",
+      "instance_name": "custom_feature_instance",
+      "zone_name": "custom_feature_zone",
+      "inputs": {
+        "RAW_DATA": "my_sensor_data"
+      },
+      "outputs": {
+        "FEATURES": "my_features"
+      },
+      "extends": [
+        {
+          "recipe": "signal_smoothing",
+          "override_with": "custom_smoothing"
+        },
+        {
+          "recipe": "feature_compute",
+          "use_class": "mypackage.features.CustomFeatureExtractor",
+          "class_config": {
+            "window_size": 100,
+            "include_fft": true
+          }
+        }
+      ]
+    }
+  ]
+}
