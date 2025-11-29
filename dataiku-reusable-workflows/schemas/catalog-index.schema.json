@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dataiku.com/schemas/reusable-workflows/catalog-index.schema.json",
+  "title": "Block Catalog Index",
+  "description": "Schema for the block catalog index file (blocks/index.json in BLOCKS_REGISTRY)",
+  "type": "object",
+  "required": ["format_version", "blocks"],
+  "properties": {
+    "format_version": {
+      "type": "string",
+      "description": "Version of the index format",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "examples": ["1.0", "1.1"]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp"
+    },
+    "registry_info": {
+      "type": "object",
+      "description": "Information about the registry",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Registry name"
+        },
+        "description": {
+          "type": "string"
+        },
+        "maintainers": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "description": "List of block summaries in the registry",
+      "items": {
+        "$ref": "#/definitions/blockSummary"
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "description": "Catalog statistics",
+      "properties": {
+        "total_blocks": {
+          "type": "integer"
+        },
+        "blocked_count": {
+          "type": "integer",
+          "description": "Number of protected/published blocks"
+        },
+        "by_hierarchy": {
+          "type": "object",
+          "additionalProperties": {"type": "integer"}
+        },
+        "by_domain": {
+          "type": "object",
+          "additionalProperties": {"type": "integer"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "blockSummary": {
+      "type": "object",
+      "description": "Summary of a block for catalog listing",
+      "required": ["block_id", "version", "name", "source_project"],
+      "properties": {
+        "block_id": {
+          "type": "string",
+          "description": "Block identifier",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["zone", "solution"],
+          "default": "zone"
+        },
+        "blocked": {
+          "type": "boolean",
+          "default": false
+        },
+        "hierarchy_level": {
+          "type": "string",
+          "enum": ["sensor", "equipment", "process", "plant", "business"]
+        },
+        "domain": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Input port summaries",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "type": {"type": "string"},
+              "required": {"type": "boolean"}
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output port summaries",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "type": {"type": "string"}
+            }
+          }
+        },
+        "source_project": {
+          "type": "string"
+        },
+        "manifest_path": {
+          "type": "string",
+          "description": "Path to full manifest file relative to blocks/"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "format_version": "1.0",
+      "updated_at": "2024-01-20T15:30:00Z",
+      "registry_info": {
+        "name": "Corporate Block Registry",
+        "description": "Shared reusable workflow blocks for industrial analytics",
+        "maintainers": ["platform-team@company.com"]
+      },
+      "blocks": [
+        {
+          "block_id": "COMPRESSOR_FEATURE_ENG",
+          "version": "1.2.0",
+          "type": "zone",
+          "blocked": true,
+          "hierarchy_level": "equipment",
+          "domain": "rotating_equipment",
+          "tags": ["compressor", "vibration", "fft"],
+          "name": "Compressor Feature Engineering",
+          "description": "Extracts vibration features from compressor sensor data",
+          "inputs": [
+            {"name": "RAW_VIBRATION", "type": "dataset", "required": true}
+          ],
+          "outputs": [
+            {"name": "VIBRATION_FEATURES", "type": "dataset"}
+          ],
+          "source_project": "COMPRESSOR_ANALYTICS",
+          "manifest_path": "manifests/COMPRESSOR_FEATURE_ENG_v1.2.0.json"
+        },
+        {
+          "block_id": "ANOMALY_DETECTION",
+          "version": "2.0.0",
+          "type": "zone",
+          "blocked": true,
+          "hierarchy_level": "equipment",
+          "domain": "predictive_maintenance",
+          "tags": ["anomaly", "ml", "isolation_forest"],
+          "name": "Equipment Anomaly Detection",
+          "description": "Detects anomalies in equipment sensor data using ML",
+          "inputs": [
+            {"name": "FEATURES", "type": "dataset", "required": true}
+          ],
+          "outputs": [
+            {"name": "ANOMALIES", "type": "dataset"},
+            {"name": "ANOMALY_SCORES", "type": "dataset"}
+          ],
+          "source_project": "ANOMALY_MODELS",
+          "manifest_path": "manifests/ANOMALY_DETECTION_v2.0.0.json"
+        }
+      ],
+      "statistics": {
+        "total_blocks": 2,
+        "blocked_count": 2,
+        "by_hierarchy": {
+          "equipment": 2
+        },
+        "by_domain": {
+          "rotating_equipment": 1,
+          "predictive_maintenance": 1
+        }
+      }
+    }
+  ]
+}

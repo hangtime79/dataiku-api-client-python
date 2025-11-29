@@ -1,0 +1,59 @@
+# Example 2: Chained Blocks
+#
+# This example shows how to chain multiple blocks together,
+# where the output of one block feeds into the input of another.
+#
+# Use case: Building an end-to-end pipeline with feature engineering
+# followed by anomaly detection.
+
+version: "1.0"
+
+project:
+  key: CHAINED_BLOCKS_EXAMPLE
+  name: "Chained Blocks Example"
+  description: "Feature engineering followed by anomaly detection"
+
+blocks:
+  # Block 1: Feature Engineering
+  - ref: "BLOCKS_REGISTRY/COMPRESSOR_FEATURE_ENG@1.2.0"
+    instance_name: feature_instance
+    zone_name: feature_engineering_zone
+    inputs:
+      RAW_VIBRATION: source_vibration_data
+      EQUIPMENT_METADATA: equipment_info   # Optional input
+    outputs:
+      VIBRATION_FEATURES: intermediate_features  # This feeds into next block
+
+  # Block 2: Anomaly Detection
+  # Note: Input references the output from Block 1
+  - ref: "BLOCKS_REGISTRY/ANOMALY_DETECTION@2.0.0"
+    instance_name: anomaly_instance
+    zone_name: anomaly_detection_zone
+    inputs:
+      FEATURES: intermediate_features   # Connected to Block 1 output
+    outputs:
+      ANOMALIES: detected_anomalies
+      ANOMALY_SCORES: anomaly_scores
+
+datasets:
+  # External input - raw sensor data
+  - name: source_vibration_data
+    type: sql_table
+    connection: WAREHOUSE
+    table: vibration_sensors
+
+  # External input - equipment metadata
+  - name: equipment_info
+    type: sql_table
+    connection: WAREHOUSE
+    table: equipment_metadata
+
+  # Final outputs
+  - name: detected_anomalies
+    type: managed
+    format_type: parquet
+
+  - name: anomaly_scores
+    type: sql_table
+    connection: WAREHOUSE
+    table: equipment_anomaly_scores

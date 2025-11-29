@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dataiku.com/schemas/reusable-workflows/iac-config.schema.json",
+  "title": "IaC Configuration with Blocks",
+  "description": "Schema for IaC configuration file with block support",
+  "type": "object",
+  "required": ["version", "project"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration format version",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "examples": ["1.0"]
+    },
+    "project": {
+      "type": "object",
+      "description": "Project configuration",
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Project key (uppercase with underscores)",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable project name"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "description": "Block references to instantiate",
+      "items": {
+        "$ref": "block-reference.schema.json"
+      }
+    },
+    "solutions": {
+      "type": "array",
+      "description": "Solution block references (multi-model compositions)",
+      "items": {
+        "$ref": "#/definitions/solutionReference"
+      }
+    },
+    "datasets": {
+      "type": "array",
+      "description": "Dataset configurations",
+      "items": {
+        "$ref": "#/definitions/dataset"
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "description": "Custom recipe configurations",
+      "items": {
+        "$ref": "#/definitions/recipe"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "description": "Scenario configurations",
+      "items": {
+        "$ref": "#/definitions/scenario"
+      }
+    }
+  },
+  "definitions": {
+    "solutionReference": {
+      "type": "object",
+      "description": "Reference to a solution block",
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "Solution block reference",
+          "pattern": "^[A-Z_]+/[A-Z_]+(@[0-9]+\\.[0-9]+\\.[0-9]+|@latest)?$"
+        },
+        "instance_name": {
+          "type": "string"
+        },
+        "zone_prefix": {
+          "type": "string",
+          "description": "Prefix for zones created by solution"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "block_overrides": {
+          "type": "object",
+          "description": "Override configurations for contained blocks",
+          "additionalProperties": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "description": "Dataset configuration",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Dataset name",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "type": "string",
+          "description": "Dataset type",
+          "enum": ["managed", "sql_table", "sql_query", "filesystem", "hdfs", "s3", "gcs", "azure_blob", "snowflake", "bigquery"]
+        },
+        "connection": {
+          "type": "string",
+          "description": "Connection name for external datasets"
+        },
+        "table": {
+          "type": "string",
+          "description": "Table name for SQL datasets"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path for filesystem-based datasets"
+        },
+        "format_type": {
+          "type": "string",
+          "description": "File format",
+          "enum": ["csv", "parquet", "json", "avro", "orc"]
+        },
+        "schema": {
+          "type": "array",
+          "description": "Column definitions",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "type": {"type": "string"}
+            }
+          }
+        },
+        "comment": {
+          "type": "string",
+          "description": "Comment or note about the dataset"
+        }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "description": "Recipe configuration",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Recipe name"
+        },
+        "type": {
+          "type": "string",
+          "description": "Recipe type",
+          "enum": ["python", "sql_query", "sql_script", "sync", "prepare", "join", "group", "window", "sort", "distinct", "sample", "split", "stack", "pivot"]
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Input dataset references",
+          "items": {
+            "oneOf": [
+              {"type": "string"},
+              {
+                "type": "object",
+                "properties": {
+                  "ref": {"type": "string"},
+                  "role": {"type": "string"}
+                }
+              }
+            ]
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output dataset references",
+          "items": {
+            "oneOf": [
+              {"type": "string"},
+              {
+                "type": "object",
+                "properties": {
+                  "ref": {"type": "string"},
+                  "role": {"type": "string"}
+                }
+              }
+            ]
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Inline code for code recipes"
+        },
+        "code_ref": {
+          "type": "string",
+          "description": "Reference to code file in project library"
+        },
+        "sql": {
+          "type": "string",
+          "description": "SQL query for SQL recipes"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "description": "Scenario configuration",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "project": {
+        "key": "COMPRESSOR_MONITORING",
+        "name": "Compressor Monitoring Pipeline",
+        "description": "End-to-end monitoring for compressor equipment"
+      },
+      "blocks": [
+        {
+          "ref": "BLOCKS_REGISTRY/COMPRESSOR_FEATURE_ENG@1.2.0",
+          "instance_name": "feature_instance",
+          "zone_name": "feature_zone",
+          "inputs": {
+            "RAW_VIBRATION": "source_vibration_data"
+          },
+          "outputs": {
+            "VIBRATION_FEATURES": "computed_features"
+          }
+        },
+        {
+          "ref": "BLOCKS_REGISTRY/ANOMALY_DETECTION@2.0.0",
+          "instance_name": "anomaly_instance",
+          "zone_name": "anomaly_zone",
+          "inputs": {
+            "FEATURES": "computed_features"
+          },
+          "outputs": {
+            "ANOMALIES": "detected_anomalies"
+          }
+        }
+      ],
+      "datasets": [
+        {
+          "name": "source_vibration_data",
+          "type": "sql_table",
+          "connection": "WAREHOUSE",
+          "table": "sensor_vibration_readings"
+        },
+        {
+          "name": "detected_anomalies",
+          "type": "managed",
+          "format_type": "parquet"
+        }
+      ]
+    }
+  ]
+}

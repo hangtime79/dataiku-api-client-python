@@ -1,0 +1,84 @@
+# Example 4: Block with Class Extension
+#
+# This example shows how to customize a block by injecting
+# a custom class that extends the block's base class.
+#
+# Use case: The block uses a BaseFeatureExtractor class, and you want
+# to add equipment-specific features while keeping the standard pipeline.
+#
+# This is more flexible than recipe override because:
+# - You keep the original recipe structure
+# - You only override specific behavior
+# - You can use configuration parameters
+
+version: "1.0"
+
+project:
+  key: CLASS_EXTENSION_EXAMPLE
+  name: "Block with Class Extension"
+  description: "Custom feature extractor class for turbine equipment"
+
+blocks:
+  - ref: "BLOCKS_REGISTRY/COMPRESSOR_FEATURE_ENG@1.2.0"
+    instance_name: turbine_feature_instance
+    zone_name: turbine_feature_zone
+    inputs:
+      RAW_VIBRATION: turbine_sensor_data
+    outputs:
+      VIBRATION_FEATURES: turbine_features
+    extends:
+      # Inject custom class into the feature_compute recipe
+      - recipe: feature_compute
+        use_class: custom_features.turbine.TurbineFeatureExtractor
+        class_config:
+          # Configuration passed to class __init__
+          window_size: 1024
+          overlap: 0.5
+          include_fft_features: true
+          include_statistical_features: true
+          custom_frequencies:
+            - 60.0    # Line frequency
+            - 120.0   # 2x line frequency
+            - 180.0   # 3x line frequency
+
+datasets:
+  - name: turbine_sensor_data
+    type: sql_table
+    connection: WAREHOUSE
+    table: turbine_vibration_sensors
+
+  - name: turbine_features
+    type: managed
+    format_type: parquet
+
+# Note: The custom class should be defined in the project library
+# at lib/python/custom_features/turbine.py
+#
+# Example class implementation:
+#
+# from blocks.features import BaseFeatureExtractor
+#
+# class TurbineFeatureExtractor(BaseFeatureExtractor):
+#     def __init__(self, window_size=512, overlap=0.5,
+#                  include_fft_features=True,
+#                  include_statistical_features=True,
+#                  custom_frequencies=None):
+#         super().__init__(window_size, overlap)
+#         self.include_fft = include_fft_features
+#         self.include_stats = include_statistical_features
+#         self.custom_freqs = custom_frequencies or []
+#
+#     def extract_features(self, signal):
+#         features = {}
+#
+#         if self.include_stats:
+#             features.update(self._statistical_features(signal))
+#
+#         if self.include_fft:
+#             features.update(self._fft_features(signal))
+#
+#         # Custom: Extract amplitudes at specific frequencies
+#         for freq in self.custom_freqs:
+#             features[f'amplitude_{freq}hz'] = self._amplitude_at_freq(signal, freq)
+#
+#         return features

@@ -1,0 +1,144 @@
+# Example 5: Multiple Instances of Same Block
+#
+# This example shows how to instantiate the same block multiple times
+# for different equipment types or data sources.
+#
+# Use case: You have compressors, pumps, and fans - all need the same
+# feature engineering, but with different data sources and outputs.
+
+version: "1.0"
+
+project:
+  key: MULTI_INSTANCE_EXAMPLE
+  name: "Multi-Instance Block Example"
+  description: "Same feature engineering block for different equipment types"
+
+blocks:
+  # Instance 1: Compressor features
+  - ref: "BLOCKS_REGISTRY/ROTATING_EQUIPMENT_FEATURES@1.0.0"
+    instance_name: compressor_features
+    zone_name: compressor_zone
+    inputs:
+      RAW_VIBRATION: compressor_vibration
+      EQUIPMENT_METADATA: compressor_metadata
+    outputs:
+      FEATURES: compressor_feature_output
+
+  # Instance 2: Pump features
+  - ref: "BLOCKS_REGISTRY/ROTATING_EQUIPMENT_FEATURES@1.0.0"
+    instance_name: pump_features
+    zone_name: pump_zone
+    inputs:
+      RAW_VIBRATION: pump_vibration
+      EQUIPMENT_METADATA: pump_metadata
+    outputs:
+      FEATURES: pump_feature_output
+
+  # Instance 3: Fan features
+  - ref: "BLOCKS_REGISTRY/ROTATING_EQUIPMENT_FEATURES@1.0.0"
+    instance_name: fan_features
+    zone_name: fan_zone
+    inputs:
+      RAW_VIBRATION: fan_vibration
+      EQUIPMENT_METADATA: fan_metadata
+    outputs:
+      FEATURES: fan_feature_output
+
+  # Downstream: Single anomaly detection on combined features
+  - ref: "BLOCKS_REGISTRY/ANOMALY_DETECTION@2.0.0"
+    instance_name: combined_anomaly
+    zone_name: anomaly_zone
+    inputs:
+      FEATURES: combined_equipment_features  # Union of all feature outputs
+    outputs:
+      ANOMALIES: all_equipment_anomalies
+
+datasets:
+  # Compressor data
+  - name: compressor_vibration
+    type: sql_table
+    connection: WAREHOUSE
+    table: compressor_sensors
+
+  - name: compressor_metadata
+    type: sql_table
+    connection: WAREHOUSE
+    table: compressor_equipment
+
+  # Pump data
+  - name: pump_vibration
+    type: sql_table
+    connection: WAREHOUSE
+    table: pump_sensors
+
+  - name: pump_metadata
+    type: sql_table
+    connection: WAREHOUSE
+    table: pump_equipment
+
+  # Fan data
+  - name: fan_vibration
+    type: sql_table
+    connection: WAREHOUSE
+    table: fan_sensors
+
+  - name: fan_metadata
+    type: sql_table
+    connection: WAREHOUSE
+    table: fan_equipment
+
+  # Intermediate outputs (managed)
+  - name: compressor_feature_output
+    type: managed
+    format_type: parquet
+
+  - name: pump_feature_output
+    type: managed
+    format_type: parquet
+
+  - name: fan_feature_output
+    type: managed
+    format_type: parquet
+
+  # Combined features for anomaly detection
+  - name: combined_equipment_features
+    type: managed
+    format_type: parquet
+    comment: "Union of compressor, pump, and fan features"
+
+  # Final output
+  - name: all_equipment_anomalies
+    type: sql_table
+    connection: WAREHOUSE
+    table: equipment_anomalies
+
+# Recipe to combine features from all equipment types
+recipes:
+  - name: combine_equipment_features
+    type: python
+    inputs:
+      - compressor_feature_output
+      - pump_feature_output
+      - fan_feature_output
+    outputs:
+      - combined_equipment_features
+    code: |
+      import dataiku
+      import pandas as pd
+
+      # Read all feature datasets
+      compressor_df = dataiku.Dataset("compressor_feature_output").get_dataframe()
+      compressor_df['EQUIPMENT_TYPE'] = 'COMPRESSOR'
+
+      pump_df = dataiku.Dataset("pump_feature_output").get_dataframe()
+      pump_df['EQUIPMENT_TYPE'] = 'PUMP'
+
+      fan_df = dataiku.Dataset("fan_feature_output").get_dataframe()
+      fan_df['EQUIPMENT_TYPE'] = 'FAN'
+
+      # Union all
+      combined = pd.concat([compressor_df, pump_df, fan_df], ignore_index=True)
+
+      # Write output
+      output = dataiku.Dataset("combined_equipment_features")
+      output.write_with_schema(combined)

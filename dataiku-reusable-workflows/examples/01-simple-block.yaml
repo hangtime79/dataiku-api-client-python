@@ -1,0 +1,39 @@
+# Example 1: Simple Block Reference
+#
+# This is the simplest way to use a reusable block.
+# It instantiates a single block with basic input/output mapping.
+#
+# Use case: You want to use an existing feature engineering block
+# with your own data source.
+
+version: "1.0"
+
+project:
+  key: SIMPLE_BLOCK_EXAMPLE
+  name: "Simple Block Example"
+  description: "Demonstrates basic block usage"
+
+# Reference a single block from the registry
+blocks:
+  - ref: "BLOCKS_REGISTRY/FEATURE_ENG@1.2.0"
+    instance_name: feature_instance
+    zone_name: feature_zone
+    inputs:
+      # Map block's input port to our dataset
+      RAW_DATA: source_sensors
+    outputs:
+      # Map block's output port to our output dataset
+      FEATURES: computed_features
+
+# Define the external datasets
+datasets:
+  # Input dataset - our data source
+  - name: source_sensors
+    type: sql_table
+    connection: WAREHOUSE
+    table: sensor_readings
+
+  # Output dataset - where features will be stored
+  - name: computed_features
+    type: managed
+    format_type: parquet
