@@ -7,6 +7,7 @@ to the catalog including wiki articles, JSON index, and schema files.
 from typing import Dict, List, Any, Optional
 import json
 import re
+from dataikuapi import DSSClient
 from dataikuapi.iac.workflows.discovery.models import BlockMetadata, BlockSummary
 from dataikuapi.iac.workflows.discovery.exceptions import CatalogWriteError
 
@@ -16,20 +17,33 @@ class CatalogWriter:
     Writes block metadata to the catalog.
 
     The CatalogWriter implements Algorithm 5 (Wiki Article Generation) and
-    handles writing blocks to the BLOCKS_REGISTRY catalog including:
-    - Wiki articles with metadata
-    - JSON catalog index
-    - Schema files
+    handles writing blocks to project-local registries and BLOCKS_REGISTRY:
+    - Project-local: Full discovery written to PROJECT/Wiki/_DISCOVERED_BLOCKS/
+    - BLOCKS_REGISTRY: Links to project-local registries (references only)
+
+    Supports two modes:
+    1. Content generation only (client=None): For testing/dry-run
+    2. Full persistence (client provided): Writes to Dataiku
 
     Example:
+        >>> # Generation only
         >>> writer = CatalogWriter()
         >>> article = writer.generate_wiki_article(block_metadata)
-        >>> print(article[:100])
+
+        >>> # With persistence
+        >>> writer = CatalogWriter(client=client)
+        >>> result = writer.write_to_project_registry(project_key, blocks)
     """
 
-    def __init__(self):
-        """Initialize CatalogWriter."""
-        pass
+    def __init__(self, client: Optional[DSSClient] = None):
+        """
+        Initialize CatalogWriter.
+
+        Args:
+            client: Optional DSSClient for write operations.
+                   If None, only content generation is available.
+        """
+        self.client = client
 
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
@@ -336,3 +350,316 @@ class CatalogWriter:
             path = f"{base}/other/{metadata.block_id}"
 
         return path
+
+    # -------------------------------------------------------------------------
+    # Project-Local Registry Write Operations
+    # -------------------------------------------------------------------------
+
+    def write_to_project_registry(
+        self, project_key: str, blocks: List[BlockMetadata]
+    ) -> Dict[str, Any]:
+        """
+        Write blocks to project-local registry.
+
+        Writes discovery results to:
+        - Wiki: PROJECT/Wiki/_DISCOVERED_BLOCKS/{block_id}.md
+        - Library: PROJECT/Library/discovery/index.json
+        - Library: PROJECT/Library/discovery/schemas/{block_id}_{port}.schema.json
+
+        Args:
+            project_key: Project to write to
+            blocks: List of blocks to write
+
+        Returns:
+            Dict with write results:
+            {
+                'project_key': str,
+                'blocks_written': int,
+                'wiki_articles': List[str],
+                'schemas_written': int,
+                'index_updated': bool
+            }
+
+        Raises:
+            CatalogWriteError: If client is None or write fails
+
+        Example:
+            >>> result = writer.write_to_project_registry("MY_PROJECT", blocks)
+            >>> print(f"Wrote {result['blocks_written']} blocks")
+        """
+        if not self.client:
+            raise CatalogWriteError(
+                "CatalogWriter requires DSSClient for write operations. "
+                "Initialize with: CatalogWriter(client=client)"
+            )
+
+        results = {
+            "project_key": project_key,
+            "blocks_written": 0,
+            "wiki_articles": [],
+            "schemas_written": 0,
+            "index_updated": False,
+        }
+
+        # Ensure project registry structure exists
+        project = self._ensure_project_registry_exists(project_key)
+
+        # Write each block
+        for block in blocks:
+            # Write wiki article
+            article_id = self._write_wiki_article(project, block)
+            results["wiki_articles"].append(article_id)
+
+            # Write schemas
+            schema_count = self._write_schemas(project, block)
+            results["schemas_written"] += schema_count
+
+            results["blocks_written"] += 1
+
+        # Update discovery index
+        self._update_discovery_index(project, blocks)
+        results["index_updated"] = True
+
+        return results
+
+    def _ensure_project_registry_exists(self, project_key: str):
+        """
+        Ensure project has discovery registry structure.
+
+        Creates if missing:
+        - Wiki folder: _DISCOVERED_BLOCKS/
+        - Library folder: discovery/
+        - Library file: discovery/index.json
+
+        Args:
+            project_key: Project identifier
+
+        Returns:
+            DSSProject instance
+
+        Raises:
+            CatalogWriteError: If project doesn't exist or access denied
+        """
+        try:
+            project = self.client.get_project(project_key)
+        except Exception as e:
+            raise CatalogWriteError(
+                f"Failed to access project {project_key}: {e}"
+            )
+
+        # Initialize discovery index if it doesn't exist
+        try:
+            # Get fresh library instance each time to avoid caching issues
+            library = project.get_library()
+            root_folder = library.root
+
+            # Ensure discovery folder exists
+            discovery_folder = root_folder.get_child("discovery")
+            if discovery_folder is None:
+                # Create discovery folder
+                discovery_folder = root_folder.add_folder("discovery")
+
+            # Ensure schemas subfolder exists
+            schemas_folder = discovery_folder.get_child("schemas")
+            if schemas_folder is None:
+                # Create schemas folder within discovery
+                schemas_folder = discovery_folder.add_folder("schemas")
+
+            # Check if discovery/index.json exists
+            index_file = discovery_folder.get_child("index.json")
+            if index_file is None:
+                # Create initial index
+                initial_index = {
+                    "version": "1.0",
+                    "project_key": project_key,
+                    "blocks": [],
+                    "last_updated": None,
+                }
+                index_file = discovery_folder.add_file("index.json")
+                index_file.write(json.dumps(initial_index, indent=2))
+
+        except Exception as e:
+            raise CatalogWriteError(
+                f"Failed to initialize project registry for {project_key}: {e}"
+            )
+
+        return project
+
+    def _write_wiki_article(self, project, block: BlockMetadata) -> str:
+        """
+        Write wiki article for block to project-local registry.
+
+        Writes to: PROJECT/Wiki/_DISCOVERED_BLOCKS/{block_id}.md
+
+        If article exists, merges with existing content to preserve
+        manual edits (changelogs, custom descriptions).
+
+        Args:
+            project: DSSProject instance
+            block: BlockMetadata to write
+
+        Returns:
+            Wiki article ID
+
+        Raises:
+            CatalogWriteError: If write fails
+        """
+        try:
+            wiki = project.get_wiki()
+            article_path = f"_DISCOVERED_BLOCKS/{block.block_id}"
+
+            # Check if article exists
+            try:
+                existing_article = wiki.get_article(article_path)
+                existing_content = existing_article.get_body()
+
+                # Merge with existing to preserve manual edits
+                article_content = self.merge_wiki_article(existing_content, block)
+
+                # Update existing article
+                existing_article.set_body(article_content)
+                return article_path
+
+            except:
+                # Article doesn't exist, create new
+                article_content = self.generate_wiki_article(block)
+                wiki.create_article(article_path, article_content)
+                return article_path
+
+        except Exception as e:
+            raise CatalogWriteError(
+                f"Failed to write wiki article for {block.block_id}: {e}"
+            )
+
+    def _write_schemas(self, project, block: BlockMetadata) -> int:
+        """
+        Write schema files to project-local registry.
+
+        Writes to: PROJECT/Library/discovery/schemas/{block_id}_{port}.schema.json
+
+        Args:
+            project: DSSProject instance
+            block: BlockMetadata with schemas
+
+        Returns:
+            Number of schema files written
+
+        Raises:
+            CatalogWriteError: If write fails
+        """
+        try:
+            library = project.get_library()
+            root_folder = library.root
+
+            # Get discovery/schemas folder
+            discovery_folder = root_folder.get_child("discovery")
+            if discovery_folder is None:
+                raise CatalogWriteError("discovery folder not found - should have been created in _ensure_project_registry_exists")
+
+            schemas_folder = discovery_folder.get_child("schemas")
+            if schemas_folder is None:
+                raise CatalogWriteError("schemas folder not found - should have been created in _ensure_project_registry_exists")
+
+            schemas_written = 0
+
+            # Write input schemas
+            for inp in block.inputs:
+                if inp.schema:
+                    file_name = f"{block.block_id}_{inp.name}.schema.json"
+                    schema_content = self.generate_schema_file(inp.schema)
+
+                    # Check if file exists, update or create
+                    schema_file = schemas_folder.get_child(file_name)
+                    if schema_file is not None:
+                        schema_file.write(schema_content)
+                    else:
+                        schema_file = schemas_folder.add_file(file_name)
+                        schema_file.write(schema_content)
+
+                    schemas_written += 1
+
+            # Write output schemas
+            for out in block.outputs:
+                if out.schema:
+                    file_name = f"{block.block_id}_{out.name}.schema.json"
+                    schema_content = self.generate_schema_file(out.schema)
+
+                    # Check if file exists, update or create
+                    schema_file = schemas_folder.get_child(file_name)
+                    if schema_file is not None:
+                        schema_file.write(schema_content)
+                    else:
+                        schema_file = schemas_folder.add_file(file_name)
+                        schema_file.write(schema_content)
+
+                    schemas_written += 1
+
+            return schemas_written
+
+        except Exception as e:
+            raise CatalogWriteError(
+                f"Failed to write schemas for {block.block_id}: {e}"
+            )
+
+    def _update_discovery_index(self, project, blocks: List[BlockMetadata]):
+        """
+        Update project-local discovery index.
+
+        Updates: PROJECT/Library/discovery/index.json
+
+        Merges new blocks with existing index, updating versions
+        and metadata for existing blocks.
+
+        Args:
+            project: DSSProject instance
+            blocks: List of blocks to merge into index
+
+        Raises:
+            CatalogWriteError: If update fails
+        """
+        try:
+            library = project.get_library()
+            root_folder = library.root
+
+            # Get discovery folder
+            discovery_folder = root_folder.get_child("discovery")
+            if discovery_folder is None:
+                raise CatalogWriteError("discovery folder not found - should have been created in _ensure_project_registry_exists")
+
+            # Read existing index
+            index_file = discovery_folder.get_child("index.json")
+            if index_file is not None:
+                index_content = index_file.read()
+                existing_index = json.loads(index_content)
+            else:
+                # Create new index if doesn't exist (shouldn't happen)
+                existing_index = {
+                    "version": "1.0",
+                    "project_key": project.project_key,
+                    "blocks": [],
+                }
+
+            # Merge each block
+            for block in blocks:
+                existing_index = self.merge_catalog_index(existing_index, block)
+
+            # Add timestamp
+            from datetime import datetime
+            existing_index["last_updated"] = datetime.utcnow().isoformat()
+
+            # Write updated index
+            index_content = json.dumps(existing_index, indent=2)
+
+            # Write to file (get it again to handle cache refresh)
+            index_file = discovery_folder.get_child("index.json")
+            if index_file is not None:
+                index_file.write(index_content)
+            else:
+                # File doesn't exist, create it
+                index_file = discovery_folder.add_file("index.json")
+                index_file.write(index_content)
+
+        except Exception as e:
+            raise CatalogWriteError(
+                f"Failed to update discovery index: {e}"
+            )

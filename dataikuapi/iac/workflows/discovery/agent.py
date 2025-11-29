@@ -53,7 +53,7 @@ class DiscoveryAgent:
         self.crawler = FlowCrawler(client)
         self.identifier = BlockIdentifier(self.crawler)
         self.schema_extractor = SchemaExtractor(client)
-        self.catalog_writer = CatalogWriter()
+        self.catalog_writer = CatalogWriter(client=client)  # Pass client for persistence
 
     def run_discovery(self, project_key: str, dry_run: bool = False) -> Dict[str, Any]:
         """
@@ -110,16 +110,21 @@ class DiscoveryAgent:
         if self.verbose:
             print(f"  Enriched {len(enriched_blocks)} blocks with schemas")
 
-        # Step 4: Generate catalog entries (unless dry_run)
-        blocks_cataloged = 0
+        # Step 4: Write to project-local registry (unless dry_run)
+        write_results = None
         if not dry_run:
             if self.verbose:
-                print("Step 4: Generating catalog entries...")
-            for block in enriched_blocks:
-                catalog_entry = self.generate_catalog_entry(block)
-                blocks_cataloged += 1
+                print("Step 4: Writing blocks to project-local registry...")
+
+            write_results = self.catalog_writer.write_to_project_registry(
+                project_key, enriched_blocks
+            )
+
             if self.verbose:
-                print(f"  Generated {blocks_cataloged} catalog entries")
+                print(f"  Wrote {write_results['blocks_written']} blocks")
+                print(f"  Wiki articles: {len(write_results['wiki_articles'])}")
+                print(f"  Schemas: {write_results['schemas_written']}")
+                print(f"  Index updated: {write_results['index_updated']}")
         else:
             if self.verbose:
                 print("Step 4: Skipped (dry-run mode)")
@@ -128,10 +133,14 @@ class DiscoveryAgent:
         results = {
             "project_key": project_key,
             "blocks_found": len(blocks),
-            "blocks_cataloged": blocks_cataloged if not dry_run else 0,
+            "blocks_cataloged": write_results['blocks_written'] if write_results else 0,
             "blocks": enriched_blocks,
             "dry_run": dry_run,
         }
+
+        # Add write details if available
+        if write_results:
+            results["write_results"] = write_results
 
         if self.verbose:
             print(f"\nDiscovery complete!")
@@ -139,6 +148,7 @@ class DiscoveryAgent:
             print(f"  Blocks found: {results['blocks_found']}")
             if not dry_run:
                 print(f"  Blocks cataloged: {results['blocks_cataloged']}")
+                print(f"  Location: {project_key}/Wiki/_DISCOVERED_BLOCKS/")
             else:
                 print(f"  Mode: DRY RUN (no catalog writes)")
 
