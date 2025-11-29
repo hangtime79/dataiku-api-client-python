@@ -2,7 +2,12 @@
 
 ## Overview
 
-The Discovery Agent is responsible for crawling Dataiku projects and cataloging reusable blocks in the BLOCKS_REGISTRY.
+The Discovery Agent is responsible for crawling Dataiku projects and cataloging discovered blocks using a **two-tier registry architecture**:
+
+1. **Project-Local Registries**: Full discovery results written to each source project's Wiki and Library, inheriting project-level Dataiku permissions
+2. **BLOCKS_REGISTRY**: Central catalog containing production-ready blocks (full content) and links to project-local registries (references only)
+
+This architecture enables security-aware discovery while maintaining cross-project discoverability.
 
 ---
 
@@ -35,26 +40,38 @@ For each identified block, the agent MUST extract:
 - Internal components (datasets, recipes, models)
 - Dependencies (Python packages, plugins)
 
-### FR-4: Wiki Catalog Writing
+### FR-4: Project-Local Registry Writing
 
-The agent MUST write to the BLOCKS_REGISTRY Wiki:
-- Block article in correct hierarchy location
-- Cross-reference in domain location
-- Index update
+The agent MUST write to the source project's local registry:
+- Wiki articles in `PROJECT/Wiki/_DISCOVERED_BLOCKS/by-hierarchy/{level}/{block_id}.md`
+- Cross-references in `PROJECT/Wiki/_DISCOVERED_BLOCKS/by-domain/{domain}/`
+- Index in `PROJECT/Library/discovery/index.json`
+- Schemas in `PROJECT/Library/discovery/schemas/{block_id}/{port}.json`
+- Discovery metadata in `PROJECT/Library/discovery/metadata.json`
 
-### FR-5: Library Index Writing
+### FR-5: Project Registration
 
-The agent MUST write to the BLOCKS_REGISTRY Library:
-- Master index.json update
-- Schema files for each port
-- Version manifest
+The agent MUST register the project in BLOCKS_REGISTRY:
+- Create link page in `BLOCKS_REGISTRY/Wiki/_PROJECT_REGISTRIES/{project_key}.md`
+- Write project metadata to `BLOCKS_REGISTRY/Library/projects/{project_key}.json`
+- Update `BLOCKS_REGISTRY/Library/projects/project_index.json`
+- Include links to project-local discoveries (NOT full content replication)
 
 ### FR-6: Manual Edit Preservation
 
 On re-crawl, the agent MUST:
-- Preserve manually added content in Wiki articles
+- Preserve manually added content in Wiki articles (changelogs, custom descriptions)
 - Merge rather than replace index entries
 - Not delete manually added blocks
+- Maintain version history
+
+### FR-7: Version Management
+
+The agent MUST manage block versions:
+- Auto-increment minor version when block metadata changes
+- Keep version unchanged when block is identical
+- Support manual version override
+- Store version in YAML frontmatter and index
 
 ---
 
@@ -348,6 +365,144 @@ FUNCTION merge_index(existing_index, new_blocks)
 END FUNCTION
 ```
 
+### Algorithm 7: Wiki-Based Diff
+
+```
+FUNCTION compare_with_existing_wiki(project, new_blocks)
+  INPUT: Dataiku project, List of newly discovered blocks
+  OUTPUT: ChangeSet with new/updated/deleted/unchanged blocks
+
+  1. Read existing Wiki articles
+     existing_blocks = []
+     wiki = project.get_wiki()
+     articles = wiki.list_articles(path="_DISCOVERED_BLOCKS/by-hierarchy")
+
+     FOR EACH article IN articles:
+       content = article.get_content()
+       frontmatter = parse_yaml_frontmatter(content)
+       metadata = BlockMetadata.from_dict(frontmatter)
+       existing_blocks.append(metadata)
+
+  2. Compare block IDs
+     new_ids = {b.block_id for b in new_blocks}
+     existing_ids = {b.block_id for b in existing_blocks}
+
+  3. Classify changes
+     changes = {
+       'new': [],
+       'updated': [],
+       'unchanged': [],
+       'deleted': []
+     }
+
+     # New blocks
+     FOR EACH block IN new_blocks:
+       IF block.block_id NOT IN existing_ids:
+         changes['new'].append(block)
+
+     # Deleted blocks
+     FOR EACH block IN existing_blocks:
+       IF block.block_id NOT IN new_ids:
+         changes['deleted'].append(block)
+
+     # Updated or unchanged blocks
+     FOR EACH new_block IN new_blocks:
+       IF new_block.block_id IN existing_ids:
+         existing_block = find_by_id(existing_blocks, new_block.block_id)
+         IF blocks_differ(existing_block, new_block):
+           changes['updated'].append(new_block)
+         ELSE:
+           changes['unchanged'].append(new_block)
+
+  4. Return changes
+END FUNCTION
+
+FUNCTION blocks_differ(block1, block2)
+  INPUT: Two BlockMetadata objects
+  OUTPUT: Boolean (true if different)
+
+  # Compare relevant fields (ignore timestamps, created_by)
+  RETURN (
+    block1.inputs != block2.inputs OR
+    block1.outputs != block2.outputs OR
+    block1.contains != block2.contains OR
+    block1.hierarchy_level != block2.hierarchy_level OR
+    block1.domain != block2.domain OR
+    block1.dependencies != block2.dependencies
+  )
+END FUNCTION
+```
+
+### Algorithm 8: Manual Edit Preservation
+
+```
+FUNCTION merge_wiki_article(existing_content, new_metadata)
+  INPUT: Existing Wiki article content (string), New block metadata
+  OUTPUT: Merged Wiki article content (string)
+
+  1. Parse existing article
+     frontmatter, body = split_yaml_frontmatter(existing_content)
+     sections = parse_markdown_sections(body)
+
+  2. Generate new article from metadata
+     new_article = generate_wiki_article(new_metadata)
+     new_frontmatter, new_body = split_yaml_frontmatter(new_article)
+     new_sections = parse_markdown_sections(new_body)
+
+  3. Identify sections to preserve
+     preserved_sections = {}
+
+     # Always preserve Changelog
+     IF 'Changelog' IN sections:
+       preserved_sections['Changelog'] = sections['Changelog']
+
+     # Preserve custom notes
+     IF 'Notes' IN sections OR 'Custom Notes' IN sections:
+       preserved_sections['Notes'] = sections.get('Notes') OR sections.get('Custom Notes')
+
+     # Preserve manually edited description
+     IF sections.get('Description') != auto_generated_description(frontmatter):
+       preserved_sections['Description'] = sections['Description']
+
+  4. Merge sections
+     merged_article = new_article
+
+     FOR section_name, section_content IN preserved_sections:
+       merged_article = replace_or_append_section(
+         merged_article,
+         section_name,
+         section_content
+       )
+
+  5. Update changelog if version changed
+     old_version = frontmatter.get('version')
+     new_version = new_frontmatter.get('version')
+
+     IF old_version != new_version:
+       changelog_entry = f"- {new_version}: Updated by Discovery Agent"
+       merged_article = append_to_changelog(merged_article, changelog_entry)
+
+  6. Return merged article
+END FUNCTION
+
+FUNCTION generate_version(block_id, previous_metadata, current_metadata)
+  INPUT: Block ID, Previous metadata (or None), Current metadata
+  OUTPUT: Version string (semver format)
+
+  1. IF previous_metadata IS None:
+     RETURN "1.0.0"  # New block
+
+  2. IF blocks_differ(previous_metadata, current_metadata):
+     # Increment minor version
+     previous_version = parse_semver(previous_metadata.version)
+     RETURN f"{previous_version.major}.{previous_version.minor + 1}.{previous_version.patch}"
+
+  3. ELSE:
+     # No changes, keep existing version
+     RETURN previous_metadata.version
+END FUNCTION
+```
+
 ---
 
 ## Component Specifications
@@ -514,11 +669,12 @@ class MetadataExtractor:
 
 ### Component 4: CatalogWriter
 
-**Responsibility:** Write catalog to BLOCKS_REGISTRY.
+**Responsibility:** Write discovery results to project-local registries and/or BLOCKS_REGISTRY.
 
 **Inputs:**
+- DSSClient
+- Target type (project-local, central registry, or both)
 - List of BlockMetadata
-- BLOCKS_REGISTRY project
 
 **Outputs:**
 - Write results (success/failure per block)
@@ -527,69 +683,301 @@ class MetadataExtractor:
 
 ```python
 class CatalogWriter:
-    def __init__(self, client: DSSClient, registry_key: str = "BLOCKS_REGISTRY"):
-        """Initialize with client and registry project key."""
-
-    def write_catalog(
+    def __init__(
         self,
+        client: DSSClient,
+        target_type: str = "project",  # "project" | "registry" | "both"
+        registry_key: str = "BLOCKS_REGISTRY"
+    ):
+        """
+        Initialize catalog writer with configurable targets.
+
+        Args:
+            client: DSSClient for API access
+            target_type: Where to write - project-local, central registry, or both
+            registry_key: BLOCKS_REGISTRY project key
+        """
+
+    def write_to_project_registry(
+        self,
+        project_key: str,
         blocks: List[BlockMetadata]
-    ) -> CatalogWriteResult:
+    ) -> Dict[str, Any]:
         """
-        Write all blocks to registry.
+        Write discovery to project's local registry.
 
-        Steps:
-        1. Ensure registry exists and is initialized
-        2. For each block:
-           a. Write wiki article
-           b. Write schema files
-           c. Update index
-        3. Return results
+        Creates:
+        - PROJECT/Wiki/_DISCOVERED_BLOCKS/{hierarchy}/{block_id}.md
+        - PROJECT/Library/discovery/index.json
+        - PROJECT/Library/discovery/schemas/{block_id}/{port}.json
+        - PROJECT/Library/discovery/metadata.json
+
+        Preserves:
+        - Manual edits in Wiki (changelogs, custom descriptions)
+        - Existing index entries for blocks not in current discovery
+
+        Returns:
+            {
+                'project': project_key,
+                'blocks_written': int,
+                'blocks_updated': int,
+                'blocks_unchanged': int,
+                'wiki_articles': [article_ids],
+                'index_updated': bool
+            }
         """
 
-    def _ensure_registry_exists(self) -> DSSProject:
-        """Create registry if it doesn't exist."""
+    def initialize_project_registry(self, project: DSSProject) -> bool:
+        """
+        Create discovery registry structure in project.
+
+        Creates:
+        - Wiki/_DISCOVERED_BLOCKS/ (with by-hierarchy folders)
+        - Library/discovery/ folder
+        - Library/discovery/index.json (empty initial)
+        - Library/discovery/schemas/ folder
+        """
+
+    def compare_with_existing(
+        self,
+        project: DSSProject,
+        new_blocks: List[BlockMetadata]
+    ) -> Dict[str, List[BlockMetadata]]:
+        """
+        Compare new discovery with existing Wiki articles.
+
+        Uses Algorithm 7 (Wiki-Based Diff).
+
+        Returns:
+            {
+                'new': [blocks not in existing wiki],
+                'updated': [blocks with changes],
+                'unchanged': [blocks identical],
+                'deleted': [blocks in wiki but not discovered]
+            }
+        """
+
+    def merge_wiki_article(
+        self,
+        existing_content: str,
+        new_metadata: BlockMetadata
+    ) -> str:
+        """
+        Merge new discovery with existing Wiki article.
+
+        Uses Algorithm 8 (Manual Edit Preservation).
+
+        Preserves:
+        - Changelog section (appends new version)
+        - Custom descriptions (if manually edited)
+        - Manual tags/notes
+
+        Updates:
+        - Inputs/outputs tables
+        - Schemas
+        - Metadata frontmatter
+        """
 
     def _write_wiki_article(
         self,
+        project: DSSProject,
         block: BlockMetadata,
-        wiki: DSSWiki
-    ) -> bool:
+        existing_content: Optional[str] = None
+    ) -> str:
         """
-        Write single wiki article.
+        Write single wiki article to project.
 
         Steps:
-        1. Generate article content
-        2. Determine article path (by-hierarchy)
-        3. Create or update article
-        4. Also link in by-domain
+        1. If existing_content provided, merge with new metadata
+        2. Otherwise, generate fresh article
+        3. Write to Wiki at correct hierarchy path
+        4. Return article ID
         """
 
     def _write_schemas(
         self,
-        block: BlockMetadata,
-        library: DSSProjectLibrary
-    ):
-        """Write schema files to library."""
-
-    def _update_index(
-        self,
-        blocks: List[BlockMetadata],
-        library: DSSProjectLibrary
+        project: DSSProject,
+        block: BlockMetadata
     ):
         """
-        Update master index.json.
+        Write schema files to project library.
+
+        Creates:
+        - Library/discovery/schemas/{block_id}/{port_name}.json
+        """
+
+    def _update_project_index(
+        self,
+        project: DSSProject,
+        blocks: List[BlockMetadata]
+    ):
+        """
+        Update project's discovery index.json.
 
         Steps:
-        1. Read existing index
-        2. Merge with new blocks
-        3. Write updated index
+        1. Read existing Library/discovery/index.json
+        2. Merge with new blocks (using Algorithm 6)
+        3. Write updated index atomically
         """
 
-    def _read_existing_index(self, library) -> dict:
-        """Read and parse existing index.json."""
+    def _update_discovery_metadata(
+        self,
+        project: DSSProject,
+        run_info: Dict[str, Any]
+    ):
+        """
+        Update discovery metadata.json with run information.
 
-    def _merge_indexes(self, existing: dict, new_blocks: List[dict]) -> dict:
-        """Merge new blocks with existing index."""
+        Appends:
+        - Run timestamp
+        - Blocks found/new/updated/unchanged
+        - Configuration used
+        """
+```
+
+### Component 5: ProjectRegistrar
+
+**Responsibility:** Manage project registration in BLOCKS_REGISTRY.
+
+**Inputs:**
+- DSSClient
+- BLOCKS_REGISTRY key
+- Project key and discovered blocks
+
+**Outputs:**
+- Registration results
+
+**Methods:**
+
+```python
+class ProjectRegistrar:
+    def __init__(self, client: DSSClient, registry_key: str = "BLOCKS_REGISTRY"):
+        """Initialize with client and registry project key."""
+        self.client = client
+        self.registry_key = registry_key
+
+    def register_project(
+        self,
+        project_key: str,
+        blocks: List[BlockMetadata]
+    ) -> RegistrationResult:
+        """
+        Create/update project registration in BLOCKS_REGISTRY.
+
+        Creates:
+        - Wiki article: _PROJECT_REGISTRIES/{project_key}.md
+        - Project metadata: Library/projects/{project_key}.json
+        - Updates Library/projects/project_index.json
+
+        Returns:
+            {
+                'registry': 'BLOCKS_REGISTRY',
+                'project_registered': bool,
+                'blocks_linked': int,
+                'link_article': article_id
+            }
+        """
+
+    def initialize_project_registries(self) -> bool:
+        """
+        Initialize BLOCKS_REGISTRY project registries structure.
+
+        Creates:
+        - Wiki/_PROJECT_REGISTRIES/ section
+        - Library/projects/ folder
+        - Library/projects/project_index.json
+        """
+
+    def get_registered_projects(self) -> List[ProjectRegistration]:
+        """List all registered projects from BLOCKS_REGISTRY."""
+
+    def unregister_project(self, project_key: str) -> bool:
+        """Remove project registration (cleanup)."""
+
+    def _generate_project_link_article(
+        self,
+        project_key: str,
+        project_name: str,
+        blocks: List[BlockMetadata]
+    ) -> str:
+        """
+        Generate Wiki article for project registration.
+
+        Includes:
+        - Project metadata
+        - List of discovered blocks with links
+        - Access information
+        """
+
+    def _write_project_metadata(
+        self,
+        project_key: str,
+        blocks: List[BlockMetadata]
+    ):
+        """
+        Write project metadata JSON.
+
+        Format: See Section 2.3 of planning docs
+        """
+```
+
+### Component 6: StateTracker
+
+**Responsibility:** Track discovery state for diff/update workflows.
+
+**Inputs:**
+- DSSProject
+- Current and previous BlockMetadata
+
+**Outputs:**
+- ChangeSet
+- Version recommendations
+
+**Methods:**
+
+```python
+class StateTracker:
+    """Wiki-based state tracking for discovery updates."""
+
+    def get_previous_discovery(
+        self,
+        project: DSSProject
+    ) -> List[BlockMetadata]:
+        """
+        Read existing Wiki articles to reconstruct previous discovery.
+
+        Parses YAML frontmatter from _DISCOVERED_BLOCKS articles.
+        Uses Algorithm 7 (Wiki-Based Diff).
+        """
+
+    def compute_changes(
+        self,
+        previous: List[BlockMetadata],
+        current: List[BlockMetadata]
+    ) -> ChangeSet:
+        """
+        Compare previous and current discoveries.
+
+        Returns:
+            ChangeSet with new/updated/deleted/unchanged blocks
+        """
+
+    def generate_version(
+        self,
+        block_id: str,
+        previous: Optional[BlockMetadata],
+        current: BlockMetadata
+    ) -> str:
+        """
+        Generate version based on changes.
+
+        Uses Algorithm 8 (generate_version function).
+
+        - New block: 1.0.0
+        - Metadata change: bump minor (1.0.0 -> 1.1.0)
+        - Schema change: bump minor
+        - No change: keep version
+        """
 ```
 
 ---
@@ -638,25 +1026,115 @@ class DiscoveryAgent:
 ```python
 @dataclass
 class DiscoveryConfig:
-    # Required
-    hierarchy_level: str          # e.g., "equipment"
-    domain: str                   # e.g., "rotating_equipment"
+    """Configuration for discovery workflow."""
 
-    # Optional with defaults
-    version: str = "1.0.0"        # Default version for new blocks
-    blocked: bool = False         # Mark as protected
-    tags: List[str] = field(default_factory=list)
+    # Target project
+    project_key: str
 
-    # Behavior options
-    publish_all_zones: bool = False        # Publish even invalid candidates
-    overwrite_existing: bool = False       # Overwrite existing blocks
-    create_registry_if_missing: bool = True
-    extract_schemas: bool = True
-    extract_dependencies: bool = True
+    # Output destinations
+    write_to_project_registry: bool = True      # Write to source project's local registry
+    register_in_blocks_registry: bool = True    # Register in BLOCKS_REGISTRY
+    blocks_registry_key: str = "BLOCKS_REGISTRY"
 
     # Filtering
-    zone_filter: Optional[List[str]] = None  # Only these zones
-    exclude_zones: Optional[List[str]] = None  # Skip these zones
+    include_zones: List[str] = field(default_factory=list)  # Whitelist (empty = all)
+    exclude_zones: List[str] = field(default_factory=list)  # Blacklist
+
+    # Metadata classification (overrides for all blocks)
+    hierarchy_level: Optional[str] = None       # e.g., "equipment", "process"
+    domain: Optional[str] = None                # e.g., "rotating_equipment", "etl"
+    tags: List[str] = field(default_factory=list)
+
+    # Version management
+    auto_increment_version: bool = True         # Auto-bump minor version on update
+    version_override: Optional[str] = None      # Force specific version for all blocks
+
+    # Behavior options
+    initialize_if_missing: bool = True          # Create registry structure if needed
+    preserve_manual_edits: bool = True          # Keep Wiki customizations on re-discovery
+    extract_schemas: bool = True                # Extract dataset schemas
+    extract_dependencies: bool = True           # Extract Python/plugin dependencies
+    dry_run: bool = False                       # Generate but don't write
+```
+
+### DiscoveryResult
+
+```python
+@dataclass
+class DiscoveryResult:
+    """Results of a discovery run."""
+
+    project_key: str
+    blocks_found: int
+
+    # Change summary
+    blocks_new: int = 0
+    blocks_updated: int = 0
+    blocks_unchanged: int = 0
+    blocks_deleted: int = 0  # Found in previous but not current
+
+    # Detailed changes
+    new_blocks: List[BlockMetadata] = field(default_factory=list)
+    updated_blocks: List[BlockMetadata] = field(default_factory=list)
+    unchanged_blocks: List[BlockMetadata] = field(default_factory=list)
+    deleted_blocks: List[BlockMetadata] = field(default_factory=list)
+
+    # Write results
+    project_write_result: Optional[Dict[str, Any]] = None
+    registration_result: Optional[Dict[str, Any]] = None
+
+    # Runtime info
+    duration_seconds: float = 0.0
+    dry_run: bool = False
+
+    def summary(self) -> str:
+        """Generate human-readable summary."""
+        return (
+            f"Discovery completed for {self.project_key}:\n"
+            f"  Found: {self.blocks_found} blocks\n"
+            f"  New: {self.blocks_new}, Updated: {self.blocks_updated}, "
+            f"  Unchanged: {self.blocks_unchanged}, Deleted: {self.blocks_deleted}\n"
+            f"  Duration: {self.duration_seconds:.1f}s"
+        )
+```
+
+### ChangeSet
+
+```python
+@dataclass
+class ChangeSet:
+    """Set of changes between two discoveries."""
+
+    new: List[BlockMetadata] = field(default_factory=list)
+    updated: List[BlockMetadata] = field(default_factory=list)
+    unchanged: List[BlockMetadata] = field(default_factory=list)
+    deleted: List[BlockMetadata] = field(default_factory=list)
+
+    @property
+    def total_changes(self) -> int:
+        """Count of blocks that changed (new + updated + deleted)."""
+        return len(self.new) + len(self.updated) + len(self.deleted)
+
+    @property
+    def has_changes(self) -> bool:
+        """True if any blocks changed."""
+        return self.total_changes > 0
+```
+
+### ProjectRegistration
+
+```python
+@dataclass
+class ProjectRegistration:
+    """Project registration information."""
+
+    project_key: str
+    project_name: str
+    registered_at: str  # ISO timestamp
+    last_discovered: str  # ISO timestamp
+    discovery_runs: int
+    blocks_discovered: int
+    blocks: List[Dict[str, Any]]  # Block summaries with links
 ```
 
 ---
@@ -682,7 +1160,7 @@ class CatalogWriteResult:
 
 ## Usage Examples
 
-### Basic Discovery
+### Basic Discovery (Two-Tier)
 
 ```python
 from dataikuapi import DSSClient
@@ -691,44 +1169,102 @@ from dataikuapi.iac.workflows.discovery import DiscoveryAgent, DiscoveryConfig
 client = DSSClient("https://dss.example.com", "api_key")
 
 agent = DiscoveryAgent(client)
-result = agent.discover_project(
-    source_project_key="COMPRESSOR_SOLUTIONS",
-    config=DiscoveryConfig(
-        hierarchy_level="equipment",
-        domain="rotating_equipment",
-        tags=["compressor", "vibration"]
-    )
+
+# Discover project: writes to local registry + registers in BLOCKS_REGISTRY
+config = DiscoveryConfig(
+    project_key="HR_ANALYTICS",
+    hierarchy_level="business",
+    domain="hr_analytics",
+    tags=["hr", "analytics"]
 )
 
-print(f"Written: {result.blocks_written}")
-print(f"Failed: {result.blocks_failed}")
-for block_id in result.written_blocks:
-    print(f"  - {block_id}")
+result = agent.run_discovery(config)
+
+print(result.summary())
+# Output:
+# Discovery completed for HR_ANALYTICS:
+#   Found: 12 blocks
+#   New: 2, Updated: 3, Unchanged: 7, Deleted: 0
+#   Duration: 45.2s
 ```
 
-### Discovery with Zone Filter
+### Discovery with Zone Filtering
 
 ```python
-result = agent.discover_project(
-    source_project_key="MY_PROJECT",
-    config=DiscoveryConfig(
-        hierarchy_level="process",
-        domain="process_control",
-        zone_filter=["data_preparation", "feature_engineering"]
-    )
+config = DiscoveryConfig(
+    project_key="PRODUCTION_ETL",
+    include_zones=["data_preparation", "feature_engineering"],  # Only these
+    exclude_zones=["staging", "test"],  # Skip these
+    hierarchy_level="process",
+    domain="etl"
 )
+
+result = agent.run_discovery(config)
+
+for block in result.new_blocks:
+    print(f"New block: {block.block_id} v{block.version}")
 ```
 
-### Re-Discovery (Update)
+### Re-Discovery (Update with Diff)
 
 ```python
-result = agent.discover_project(
-    source_project_key="COMPRESSOR_SOLUTIONS",
-    config=DiscoveryConfig(
-        hierarchy_level="equipment",
-        domain="rotating_equipment",
-        version="1.1.0",  # New version
-        overwrite_existing=True
-    )
+# Re-run discovery on project
+config = DiscoveryConfig(
+    project_key="HR_ANALYTICS",
+    auto_increment_version=True,  # Auto-bump versions on changes
+    preserve_manual_edits=True    # Keep manual Wiki edits
 )
+
+result = agent.run_discovery(config)
+
+# Show what changed
+if result.blocks_updated:
+    print(f"\nUpdated blocks ({len(result.blocks_updated)}):")
+    for block in result.blocks_updated:
+        print(f"  {block.block_id}: v{block.version}")
+
+if result.blocks_deleted:
+    print(f"\nDeleted blocks ({len(result.blocks_deleted)}):")
+    for block in result.blocks_deleted:
+        print(f"  {block.block_id} (no longer in project)")
+```
+
+### Dry Run (Preview Changes)
+
+```python
+config = DiscoveryConfig(
+    project_key="MY_PROJECT",
+    dry_run=True  # Don't write, just show what would happen
+)
+
+result = agent.run_discovery(config)
+
+print(f"Would create {result.blocks_new} new blocks")
+print(f"Would update {result.blocks_updated} blocks")
+```
+
+### Project-Local Only (No BLOCKS_REGISTRY)
+
+```python
+# Write to project registry only, don't register in BLOCKS_REGISTRY
+config = DiscoveryConfig(
+    project_key="SANDBOX_PROJECT",
+    write_to_project_registry=True,
+    register_in_blocks_registry=False  # Skip central registration
+)
+
+result = agent.run_discovery(config)
+```
+
+### List Registered Projects
+
+```python
+from dataikuapi.iac.workflows.discovery import ProjectRegistrar
+
+registrar = ProjectRegistrar(client)
+projects = registrar.get_registered_projects()
+
+for project in projects:
+    print(f"{project.project_key}: {project.blocks_discovered} blocks")
+    print(f"  Last discovered: {project.last_discovered}")
 ```

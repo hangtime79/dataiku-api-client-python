@@ -2,11 +2,18 @@
 
 ## Overview
 
-The **BLOCKS_REGISTRY** is a dedicated Dataiku project that serves as the central catalog of all published blocks. It provides both human-readable documentation and machine-parseable indexes.
+The **BLOCKS_REGISTRY** is a dedicated Dataiku project that serves as the central catalog in a **two-tier registry architecture**:
+
+1. **Production Blocks**: Full content (wiki, schemas, manifests) for blocks explicitly published/promoted for reuse
+2. **Project Registrations**: Links to project-local registries for cross-project discoverability while respecting Dataiku permissions
+
+This design enables security-aware discovery where project-local registries inherit Dataiku project permissions, while the central BLOCKS_REGISTRY provides searchability across the organization.
 
 ---
 
 ## Registry Architecture
+
+### BLOCKS_REGISTRY Structure
 
 ```
 BLOCKS_REGISTRY (Dataiku Project)
@@ -18,7 +25,7 @@ BLOCKS_REGISTRY (Dataiku Project)
 │   │   ├── hierarchy.md                 # Hierarchy level definitions
 │   │   └── domains.md                   # Domain definitions
 │   │
-│   ├── _BLOCKS/
+│   ├── _BLOCKS/                         # Production blocks (full content)
 │   │   ├── _INDEX.md                    # Master block index (human)
 │   │   │
 │   │   ├── by-hierarchy/
@@ -40,29 +47,74 @@ BLOCKS_REGISTRY (Dataiku Project)
 │   │       │   └── *.md
 │   │       └── ...
 │   │
+│   ├── _PROJECT_REGISTRIES/            # NEW: Project links (references only)
+│   │   ├── _INDEX.md                   # List of registered projects
+│   │   ├── HR_ANALYTICS.md             # Link page for HR project
+│   │   ├── PRODUCTION_ETL.md           # Link page for ETL project
+│   │   └── ...                         # One page per registered project
+│   │
 │   └── _SOLUTIONS/
-│       ├── _INDEX.md                    # Solution index
-│       └── *.md                         # Solution articles
+│       ├── _INDEX.md                   # Solution index
+│       └── *.md                        # Solution articles
 │
 ├── Library/
-│   └── blocks/
-│       ├── index.json                   # Master index (machine)
-│       ├── hierarchy_config.json        # Hierarchy definitions
-│       ├── domain_config.json           # Domain definitions
-│       │
-│       ├── schemas/
-│       │   ├── block_id/
-│       │   │   ├── input_port.json
-│       │   │   └── output_port.json
-│       │   └── ...
-│       │
-│       └── manifests/
-│           ├── BLOCK_ID_v1.0.0.json     # Version-specific manifests
-│           └── ...
+│   ├── blocks/                         # Production blocks
+│   │   ├── index.json                  # Master index (machine)
+│   │   ├── hierarchy_config.json       # Hierarchy definitions
+│   │   ├── domain_config.json          # Domain definitions
+│   │   │
+│   │   ├── schemas/
+│   │   │   ├── block_id/
+│   │   │   │   ├── input_port.json
+│   │   │   │   └── output_port.json
+│   │   │   └── ...
+│   │   │
+│   │   └── manifests/
+│   │       ├── BLOCK_ID_v1.0.0.json    # Version-specific manifests
+│   │       └── ...
+│   │
+│   └── projects/                       # NEW: Project registrations
+│       ├── project_index.json          # All registered projects
+│       ├── HR_ANALYTICS.json           # Project metadata + block list
+│       ├── PRODUCTION_ETL.json
+│       └── ...                         # One JSON per registered project
 │
 └── Bundles/ (conceptual - stored via bundle API)
     ├── BLOCK_ID_v1.0.0.zip
     └── ...
+```
+
+### Project-Local Registry Structure
+
+Each project with discovered blocks has its own local registry:
+
+```
+PROJECT_KEY (Dataiku Project)
+│
+├── Wiki/
+│   └── _DISCOVERED_BLOCKS/
+│       ├── _INDEX.md                    # Human-readable index
+│       │
+│       ├── by-hierarchy/
+│       │   ├── sensor/
+│       │   ├── equipment/
+│       │   ├── process/
+│       │   │   └── BLOCK_ID.md         # Full block documentation
+│       │   ├── plant/
+│       │   └── business/
+│       │
+│       └── by-domain/
+│           └── {domain}/
+│               └── BLOCK_ID.md         # Cross-reference
+│
+└── Library/
+    └── discovery/
+        ├── index.json                   # Machine-readable catalog
+        ├── metadata.json                # Discovery run metadata
+        └── schemas/
+            └── BLOCK_ID/
+                ├── INPUT_PORT.json
+                └── OUTPUT_PORT.json
 ```
 
 ---
@@ -442,6 +494,238 @@ def update_master_index(registry: DSSProject, block_metadata: BlockMetadata):
     # Write back (atomic)
     temp_content = json.dumps(index, indent=2)
     index_file.write(temp_content)
+```
+
+---
+
+## Project Registration Operations
+
+### Operation 5: Register Project
+
+```python
+def register_project(
+    registry: DSSProject,
+    project_key: str,
+    project_name: str,
+    blocks: List[BlockMetadata]
+) -> Dict[str, Any]:
+    """
+    Register a project in BLOCKS_REGISTRY with link entries.
+
+    Creates:
+    - Wiki article: _PROJECT_REGISTRIES/{project_key}.md
+    - Project metadata: Library/projects/{project_key}.json
+    - Updates Library/projects/project_index.json
+
+    Does NOT replicate block content, only creates references.
+
+    Args:
+        registry: BLOCKS_REGISTRY project
+        project_key: Source project key
+        project_name: Source project name
+        blocks: List of discovered blocks (for linking)
+
+    Returns:
+        {
+            'project_registered': bool,
+            'blocks_linked': int,
+            'link_article_id': str
+        }
+    """
+    wiki = registry.get_wiki()
+    library = registry.get_library()
+
+    # 1. Generate project link Wiki article
+    article_content = generate_project_link_article(project_key, project_name, blocks)
+    article_path = f"_PROJECT_REGISTRIES/{project_key}"
+
+    try:
+        article = wiki.get_article(article_path)
+        article_data = article.get_data()
+        article_data.set_body(article_content)
+        article_data.save()
+    except:
+        # Create parent if needed
+        try:
+            wiki.get_article("_PROJECT_REGISTRIES")
+        except:
+            wiki.create_article("_PROJECT_REGISTRIES", parent_id="Home")
+
+        article = wiki.create_article(project_key, parent_id="_PROJECT_REGISTRIES", content=article_content)
+
+    # 2. Write project metadata JSON
+    project_metadata = {
+        "project_key": project_key,
+        "project_name": project_name,
+        "registered_at": datetime.utcnow().isoformat() + "Z",
+        "last_discovered": datetime.utcnow().isoformat() + "Z",
+        "discovery_runs": 1,
+        "blocks_discovered": len(blocks),
+        "blocks": [
+            {
+                "block_id": block.block_id,
+                "version": block.version,
+                "hierarchy_level": block.hierarchy_level,
+                "domain": block.domain,
+                "wiki_link": f"{project_key}/Wiki/_DISCOVERED_BLOCKS/by-hierarchy/{block.hierarchy_level}/{block.block_id}.md",
+                "index_link": f"{project_key}/Library/discovery/index.json",
+                "discovered_at": datetime.utcnow().isoformat() + "Z"
+            }
+            for block in blocks
+        ]
+    }
+
+    metadata_path = f"projects/{project_key}.json"
+    library.write_file(metadata_path, json.dumps(project_metadata, indent=2))
+
+    # 3. Update project index
+    update_project_index(registry, project_key, project_name, len(blocks))
+
+    return {
+        'project_registered': True,
+        'blocks_linked': len(blocks),
+        'link_article_id': article.article_id
+    }
+
+
+def generate_project_link_article(
+    project_key: str,
+    project_name: str,
+    blocks: List[BlockMetadata]
+) -> str:
+    """
+    Generate Wiki article for project registration.
+
+    Format includes:
+    - Project metadata (YAML frontmatter)
+    - Access information
+    - List of discovered blocks with links
+    - Link to full discovery catalog
+    """
+    # Group blocks by hierarchy level
+    by_hierarchy = {}
+    for block in blocks:
+        level = block.hierarchy_level or "other"
+        if level not in by_hierarchy:
+            by_hierarchy[level] = []
+        by_hierarchy[level].append(block)
+
+    # Generate article
+    article = f"""---
+project_key: {project_key}
+project_name: {project_name}
+registered_at: {datetime.utcnow().isoformat()}Z
+last_discovered: {datetime.utcnow().isoformat()}Z
+blocks_discovered: {len(blocks)}
+---
+
+# {project_name}
+
+**Project Key:** `{project_key}`
+**Last Discovery:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+**Blocks Discovered:** {len(blocks)}
+
+## Access
+
+This project's discoveries are subject to Dataiku project permissions.
+You must have access to the {project_key} project to view block details.
+
+## Discovered Blocks
+
+"""
+
+    # Add blocks by hierarchy
+    for level in sorted(by_hierarchy.keys()):
+        article += f"\n### {level.title()} Level\n\n"
+        for block in sorted(by_hierarchy[level], key=lambda b: b.block_id):
+            wiki_link = f"{project_key}/Wiki/_DISCOVERED_BLOCKS/by-hierarchy/{level}/{block.block_id}.md"
+            article += f"- [{block.block_id}]({wiki_link}) - v{block.version}\n"
+
+    article += f"""
+
+## Discovery Details
+
+View full discovery catalog:
+- [Wiki Index]({project_key}/Wiki/_DISCOVERED_BLOCKS/_INDEX.md)
+- [JSON Index]({project_key}/Library/discovery/index.json)
+"""
+
+    return article
+
+
+def update_project_index(
+    registry: DSSProject,
+    project_key: str,
+    project_name: str,
+    blocks_discovered: int
+):
+    """
+    Update Library/projects/project_index.json with new/updated project.
+
+    Maintains list of all registered projects.
+    """
+    library = registry.get_library()
+
+    # Read existing index
+    try:
+        index_content = library.read_file("projects/project_index.json")
+        index = json.loads(index_content)
+    except:
+        index = {
+            "format_version": "1.0",
+            "updated_at": None,
+            "project_count": 0,
+            "projects": []
+        }
+
+    # Find existing project
+    existing_idx = None
+    for i, proj in enumerate(index["projects"]):
+        if proj["project_key"] == project_key:
+            existing_idx = i
+            break
+
+    # Create/update project entry
+    project_entry = {
+        "project_key": project_key,
+        "project_name": project_name,
+        "registered_at": datetime.utcnow().isoformat() + "Z",
+        "last_discovered": datetime.utcnow().isoformat() + "Z",
+        "blocks_discovered": blocks_discovered,
+        "metadata_path": f"projects/{project_key}.json",
+        "wiki_path": f"_PROJECT_REGISTRIES/{project_key}.md"
+    }
+
+    if existing_idx is not None:
+        index["projects"][existing_idx] = project_entry
+    else:
+        index["projects"].append(project_entry)
+
+    # Update metadata
+    index["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    index["project_count"] = len(index["projects"])
+
+    # Write back
+    library.write_file("projects/project_index.json", json.dumps(index, indent=2))
+```
+
+### Operation 6: Get Registered Projects
+
+```python
+def get_registered_projects(registry: DSSProject) -> List[Dict[str, Any]]:
+    """
+    List all registered projects.
+
+    Returns:
+        List of project metadata dicts
+    """
+    library = registry.get_library()
+
+    # Read project index
+    index_content = library.read_file("projects/project_index.json")
+    index = json.loads(index_content)
+
+    return index["projects"]
 ```
 
 ---
