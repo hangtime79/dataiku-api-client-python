@@ -1,8 +1,45 @@
 """Shared test fixtures for Discovery Agent tests."""
 
 import pytest
+import os
 from unittest.mock import Mock, MagicMock
 from datetime import datetime
+from dataikuapi import DSSClient
+
+
+# Real Dataiku instance configuration
+DEFAULT_HOST = "http://172.18.58.26:10000"
+DEFAULT_API_KEY_PATH = "/opt/dataiku/dss_install/dataiku-claude-api-key.key"
+
+
+def get_real_client() -> DSSClient:
+    """
+    Get authenticated DSSClient for real Dataiku instance.
+
+    Returns:
+        DSSClient: Authenticated client
+
+    Raises:
+        pytest.skip: If credentials not available
+    """
+    host = os.environ.get("DATAIKU_HOST", DEFAULT_HOST)
+    api_key = os.environ.get("DATAIKU_API_KEY")
+
+    # Try to load from default location if not in env
+    if not api_key and os.path.exists(DEFAULT_API_KEY_PATH):
+        with open(DEFAULT_API_KEY_PATH) as f:
+            api_key = f.read().strip()
+
+    if not api_key:
+        pytest.skip("DATAIKU_API_KEY not available")
+
+    return DSSClient(host, api_key)
+
+
+@pytest.fixture
+def real_client():
+    """Fixture providing real DSSClient for integration tests."""
+    return get_real_client()
 
 
 @pytest.fixture
