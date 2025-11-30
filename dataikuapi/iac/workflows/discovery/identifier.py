@@ -509,3 +509,23 @@ class BlockIdentifier:
         except Exception:
             # Step 3: Graceful fallback
             return {"columns": 0, "sample": []}
+
+    def _get_dataset_docs(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Extracts documentation metadata from a dataset.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: description, tags
+        """
+        # Step 1: Get settings
+        settings = dataset.get_settings()
+        raw = settings.get_raw()
+
+        # Step 2: Extract info
+        description = raw.get("description", "")
+        tags = raw.get("tags", [])
+
+        return {"description": description, "tags": tags}

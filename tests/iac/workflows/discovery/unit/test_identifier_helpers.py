@@ -36,7 +36,9 @@ def mock_dataset():
                 {"name": "year"},
                 {"name": "month"}
             ]
-        }
+        },
+        "description": "Test dataset description",
+        "tags": ["tag1", "tag2", "production"]
     }
 
     settings.get_raw.return_value = raw_data
@@ -161,3 +163,59 @@ class TestSummarizeSchema:
 
         assert summary["columns"] == 0
         assert summary["sample"] == []
+
+
+class TestGetDatasetDocs:
+    """Tests for _get_dataset_docs method."""
+
+    def test_get_dataset_docs_complete(self, identifier, mock_dataset):
+        """Test extraction of complete documentation."""
+        docs = identifier._get_dataset_docs(mock_dataset)
+
+        assert docs["description"] == "Test dataset description"
+        assert "tag1" in docs["tags"]
+        assert "tag2" in docs["tags"]
+        assert "production" in docs["tags"]
+        assert len(docs["tags"]) == 3
+
+    def test_get_dataset_docs_no_description(self, identifier):
+        """Test dataset without description."""
+        dataset = Mock()
+        settings = Mock()
+        raw_data = {"tags": ["tag1"]}
+
+        settings.get_raw.return_value = raw_data
+        dataset.get_settings.return_value = settings
+
+        docs = identifier._get_dataset_docs(dataset)
+
+        assert docs["description"] == ""
+        assert docs["tags"] == ["tag1"]
+
+    def test_get_dataset_docs_no_tags(self, identifier):
+        """Test dataset without tags."""
+        dataset = Mock()
+        settings = Mock()
+        raw_data = {"description": "A dataset"}
+
+        settings.get_raw.return_value = raw_data
+        dataset.get_settings.return_value = settings
+
+        docs = identifier._get_dataset_docs(dataset)
+
+        assert docs["description"] == "A dataset"
+        assert docs["tags"] == []
+
+    def test_get_dataset_docs_empty(self, identifier):
+        """Test dataset with no documentation."""
+        dataset = Mock()
+        settings = Mock()
+        raw_data = {}
+
+        settings.get_raw.return_value = raw_data
+        dataset.get_settings.return_value = settings
+
+        docs = identifier._get_dataset_docs(dataset)
+
+        assert docs["description"] == ""
+        assert docs["tags"] == []
