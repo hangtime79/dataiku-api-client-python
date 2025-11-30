@@ -442,3 +442,284 @@ class BlockSummary:
             outputs=data.get("outputs", []),
             manifest_path=data.get("manifest_path", ""),
         )
+
+
+@dataclass
+class LibraryReference:
+    """
+    Reference to a file or module in the project library.
+    """
+
+    name: str
+    type: str  # "python", "R", "resource"
+    description: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "description": self.description,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LibraryReference":
+        """Deserialize from dictionary."""
+        return cls(
+            name=data["name"],
+            type=data["type"],
+            description=data.get("description", ""),
+        )
+
+
+@dataclass
+class NotebookReference:
+    """
+    Reference to a Jupyter or SQL notebook.
+    """
+
+    name: str
+    type: str  # "jupyter", "sql"
+    description: str = ""
+    tags: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "description": self.description,
+            "tags": self.tags,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "NotebookReference":
+        """Deserialize from dictionary."""
+        return cls(
+            name=data["name"],
+            type=data["type"],
+            description=data.get("description", ""),
+            tags=data.get("tags", []),
+        )
+
+
+@dataclass
+class DatasetDetail:
+    """
+    Rich metadata for a dataset.
+    """
+
+    name: str
+    type: str
+    connection: str
+    format_type: str
+    schema_summary: Dict[str, Any]  # e.g. {"columns": 10, "sample": ["id", "val"]}
+    partitioning: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    description: str = ""
+    estimated_size: Optional[str] = None
+    last_built: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "connection": self.connection,
+            "format_type": self.format_type,
+            "schema_summary": self.schema_summary,
+            "partitioning": self.partitioning,
+            "tags": self.tags,
+            "description": self.description,
+            "estimated_size": self.estimated_size,
+            "last_built": self.last_built,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DatasetDetail":
+        """Deserialize from dictionary."""
+        return cls(
+            name=data["name"],
+            type=data["type"],
+            connection=data["connection"],
+            format_type=data["format_type"],
+            schema_summary=data["schema_summary"],
+            partitioning=data.get("partitioning"),
+            tags=data.get("tags", []),
+            description=data.get("description", ""),
+            estimated_size=data.get("estimated_size"),
+            last_built=data.get("last_built"),
+        )
+
+
+@dataclass
+class RecipeDetail:
+    """
+    Rich metadata for a recipe.
+    """
+
+    name: str
+    type: str
+    engine: str
+    inputs: List[str]
+    outputs: List[str]
+    description: str = ""
+    tags: List[str] = field(default_factory=list)
+    code_snippet: Optional[str] = None
+    config_summary: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "engine": self.engine,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+            "description": self.description,
+            "tags": self.tags,
+            "code_snippet": self.code_snippet,
+            "config_summary": self.config_summary,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RecipeDetail":
+        """Deserialize from dictionary."""
+        return cls(
+            name=data["name"],
+            type=data["type"],
+            engine=data["engine"],
+            inputs=data["inputs"],
+            outputs=data["outputs"],
+            description=data.get("description", ""),
+            tags=data.get("tags", []),
+            code_snippet=data.get("code_snippet"),
+            config_summary=data.get("config_summary", {}),
+        )
+
+
+@dataclass
+class EnhancedBlockMetadata(BlockMetadata):
+    """
+    Extended metadata with rich component details.
+
+    Extends BlockMetadata with detailed information about datasets, recipes,
+    library files, and notebooks contained within a block. This provides
+    the foundation for generating rich documentation and understanding
+    block complexity.
+
+    Attributes:
+        dataset_details: List of detailed dataset metadata
+        recipe_details: List of detailed recipe metadata
+        library_refs: List of library file references
+        notebook_refs: List of notebook references
+        flow_graph: Optional flow graph structure
+        estimated_complexity: Complexity estimate ("simple", "moderate", "complex")
+        estimated_size: Size estimate (e.g., "2.5GB")
+
+    Example:
+        >>> enhanced = EnhancedBlockMetadata(
+        >>>     block_id="FEATURE_ENG",
+        >>>     version="1.0.0",
+        >>>     type="zone",
+        >>>     source_project="PROJ",
+        >>>     dataset_details=[
+        >>>         DatasetDetail(name="ds1", type="Snowflake", ...)
+        >>>     ]
+        >>> )
+    """
+
+    dataset_details: List[DatasetDetail] = field(default_factory=list)
+    recipe_details: List[RecipeDetail] = field(default_factory=list)
+    library_refs: List[LibraryReference] = field(default_factory=list)
+    notebook_refs: List[NotebookReference] = field(default_factory=list)
+    flow_graph: Optional[Dict[str, Any]] = None
+    estimated_complexity: str = ""  # "simple", "moderate", "complex"
+    estimated_size: str = ""  # e.g., "2.5GB"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize EnhancedBlockMetadata to dictionary.
+
+        Performs deep serialization by converting all nested objects
+        (DatasetDetail, RecipeDetail, etc.) to dictionaries.
+
+        Returns:
+            Dict representation suitable for JSON serialization
+        """
+        # Get base class fields
+        base_dict = super().to_dict()
+
+        # Add enhanced fields with deep serialization
+        base_dict.update(
+            {
+                "dataset_details": [ds.to_dict() for ds in self.dataset_details],
+                "recipe_details": [rc.to_dict() for rc in self.recipe_details],
+                "library_refs": [lib.to_dict() for lib in self.library_refs],
+                "notebook_refs": [nb.to_dict() for nb in self.notebook_refs],
+                "flow_graph": self.flow_graph,
+                "estimated_complexity": self.estimated_complexity,
+                "estimated_size": self.estimated_size,
+            }
+        )
+
+        return base_dict
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EnhancedBlockMetadata":
+        """
+        Deserialize EnhancedBlockMetadata from dictionary.
+
+        Performs deep deserialization by reconstructing nested objects
+        from dictionaries.
+
+        Args:
+            data: Dictionary containing enhanced block metadata
+
+        Returns:
+            EnhancedBlockMetadata instance
+        """
+        # Extract base class fields
+        base_fields = {
+            "block_id": data["block_id"],
+            "version": data["version"],
+            "type": data["type"],
+            "source_project": data["source_project"],
+            "blocked": data.get("blocked", False),
+            "name": data.get("name", ""),
+            "description": data.get("description", ""),
+            "hierarchy_level": data.get("hierarchy_level", ""),
+            "domain": data.get("domain", ""),
+            "tags": data.get("tags", []),
+            "source_zone": data.get("source_zone", ""),
+            "inputs": [BlockPort.from_dict(inp) for inp in data.get("inputs", [])],
+            "outputs": [BlockPort.from_dict(out) for out in data.get("outputs", [])],
+            "contains": BlockContents.from_dict(data.get("contains", {})),
+            "dependencies": data.get("dependencies", {}),
+            "bundle_ref": data.get("bundle_ref"),
+            "created_at": data.get("created_at"),
+            "updated_at": data.get("updated_at"),
+            "created_by": data.get("created_by", ""),
+        }
+
+        # Extract enhanced fields with deep deserialization
+        enhanced_fields = {
+            "dataset_details": [
+                DatasetDetail.from_dict(ds) for ds in data.get("dataset_details", [])
+            ],
+            "recipe_details": [
+                RecipeDetail.from_dict(rc) for rc in data.get("recipe_details", [])
+            ],
+            "library_refs": [
+                LibraryReference.from_dict(lib) for lib in data.get("library_refs", [])
+            ],
+            "notebook_refs": [
+                NotebookReference.from_dict(nb) for nb in data.get("notebook_refs", [])
+            ],
+            "flow_graph": data.get("flow_graph"),
+            "estimated_complexity": data.get("estimated_complexity", ""),
+            "estimated_size": data.get("estimated_size", ""),
+        }
+
+        # Combine and create instance
+        return cls(**base_fields, **enhanced_fields)
