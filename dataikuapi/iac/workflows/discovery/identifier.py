@@ -9,6 +9,7 @@ import re
 from dataikuapi.iac.workflows.discovery.crawler import FlowCrawler
 from dataikuapi.iac.workflows.discovery.models import (
     BlockMetadata,
+    EnhancedBlockMetadata,
     BlockPort,
     BlockContents,
     DatasetDetail,
@@ -145,7 +146,7 @@ class BlockIdentifier:
 
     def extract_block_metadata(
         self, project_key: str, zone_name: str, boundary: Dict[str, Any]
-    ) -> BlockMetadata:
+    ) -> EnhancedBlockMetadata:
         """
         Extract complete block metadata from a zone.
 
@@ -155,7 +156,7 @@ class BlockIdentifier:
             boundary: Zone boundary analysis
 
         Returns:
-            BlockMetadata object with complete block information
+            EnhancedBlockMetadata object with complete block information
 
         Example:
             >>> metadata = identifier.extract_block_metadata("PROJECT", "zone1", boundary)
@@ -185,8 +186,12 @@ class BlockIdentifier:
         # Generate version
         version = self.generate_version(block_id)
 
-        # Create BlockMetadata
-        metadata = BlockMetadata(
+        # Extract dataset details
+        project = self.crawler.client.get_project(project_key)
+        dataset_details = self._extract_dataset_details(project, contents.datasets)
+
+        # Create EnhancedBlockMetadata
+        metadata = EnhancedBlockMetadata(
             block_id=block_id,
             version=version,
             type="zone",
@@ -200,6 +205,7 @@ class BlockIdentifier:
             inputs=inputs,
             outputs=outputs,
             contains=contents,
+            dataset_details=dataset_details,
         )
 
         return metadata
