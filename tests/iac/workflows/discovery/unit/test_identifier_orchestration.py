@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from dataikuapi.iac.workflows.discovery.identifier import BlockIdentifier
 from dataikuapi.iac.workflows.discovery.crawler import FlowCrawler
-from dataikuapi.iac.workflows.discovery.models import DatasetDetail
+from dataikuapi.iac.workflows.discovery.models import DatasetDetail, RecipeDetail
 
 
 @pytest.fixture
@@ -182,3 +182,91 @@ class TestExtractDatasetDetails:
         assert detail.tags == ["pii", "production"]
         assert detail.schema_summary["columns"] == 3
         assert detail.schema_summary["sample"] == ["customer_id", "email", "created_at"]
+
+
+class TestExtractRecipeDetails:
+    """Tests for _extract_recipe_details orchestration method."""
+
+    def test_extracts_single_recipe(self, mock_crawler, mock_project):
+        """Test successful extraction of one recipe."""
+        # Setup mock recipe
+        mock_recipe = MagicMock()
+        mock_settings = MagicMock()
+        mock_settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {"main": {"ref": "input_ds"}},
+            "outputs": {"main": {"ref": "output_ds"}},
+            "description": "Test recipe",
+            "tags": ["test"],
+            "payload": "print('hello')"
+        }
+        mock_recipe.get_settings.return_value = mock_settings
+        mock_project.get_recipe.return_value = mock_recipe
+
+        identifier = BlockIdentifier(mock_crawler)
+        details = identifier._extract_recipe_details(mock_project, ["recipe1"])
+
+        assert len(details) == 1
+        assert isinstance(details[0], RecipeDetail)
+        assert details[0].name == "recipe1"
+        assert details[0].type == "python"
+        assert details[0].engine == "DSS"
+
+    def test_extracts_multiple_recipes(self, mock_crawler, mock_project):
+        """Test extraction of multiple recipes."""
+        # Setup multiple mock recipes
+        def get_recipe_side_effect(name):
+            mock_recipe = MagicMock()
+            mock_settings = MagicMock()
+            mock_settings.get_raw.return_value = {
+                "type": "python",
+                "params": {"engineType": "DSS"},
+                "inputs": {},
+                "outputs": {}
+            }
+            mock_recipe.get_settings.return_value = mock_settings
+            return mock_recipe
+
+        mock_project.get_recipe.side_effect = get_recipe_side_effect
+
+        identifier = BlockIdentifier(mock_crawler)
+        details = identifier._extract_recipe_details(mock_project, ["rc1", "rc2"])
+
+        assert len(details) == 2
+
+    def test_handles_empty_list(self, mock_crawler, mock_project):
+        """Test graceful handling of empty input."""
+        identifier = BlockIdentifier(mock_crawler)
+        details = identifier._extract_recipe_details(mock_project, [])
+
+        assert details == []
+
+    def test_continues_on_individual_failure(self, mock_crawler, mock_project, capsys):
+        """Test continues processing when one recipe fails."""
+        # Setup side effect: success, failure, success
+        def get_recipe_side_effect(name):
+            if name == "bad":
+                raise Exception("Recipe not found")
+            mock_recipe = MagicMock()
+            mock_settings = MagicMock()
+            mock_settings.get_raw.return_value = {
+                "type": "python",
+                "params": {"engineType": "DSS"},
+                "inputs": {},
+                "outputs": {}
+            }
+            mock_recipe.get_settings.return_value = mock_settings
+            return mock_recipe
+
+        mock_project.get_recipe.side_effect = get_recipe_side_effect
+
+        identifier = BlockIdentifier(mock_crawler)
+        details = identifier._extract_recipe_details(
+            mock_project, ["good1", "bad", "good2"]
+        )
+
+        assert len(details) == 2  # Only successful ones
+        captured = capsys.readouterr()
+        assert "Warning" in captured.out
+        assert "bad" in captured.out

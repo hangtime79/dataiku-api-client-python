@@ -13,6 +13,7 @@ from dataikuapi.iac.workflows.discovery.models import (
     BlockPort,
     BlockContents,
     DatasetDetail,
+    RecipeDetail,
 )
 
 
@@ -643,3 +644,63 @@ class BlockIdentifier:
             snippet += "\n... (truncated)"
 
         return snippet
+
+    def _extract_recipe_details(
+        self, project: Any, recipe_names: List[str]
+    ) -> List[RecipeDetail]:
+        """
+        Extract detailed metadata for multiple recipes.
+
+        Orchestrates the extraction of recipe details by calling helper methods
+        for configuration, code snippets, and documentation.
+
+        Args:
+            project: Dataiku project object
+            recipe_names: List of recipe names to extract
+
+        Returns:
+            List of RecipeDetail objects
+
+        Example:
+            >>> details = identifier._extract_recipe_details(project, ["recipe1"])
+            >>> print(f"Extracted {len(details)} recipe details")
+        """
+        details = []
+
+        for name in recipe_names:
+            try:
+                # Step 1: Get object
+                rc = project.get_recipe(name)
+
+                # Step 2: Get settings
+                settings = rc.get_settings()
+                raw = settings.get_raw()
+
+                # Step 3: Call helpers
+                config = self._get_recipe_config(rc)
+                snippet = self._extract_code_snippet(raw)
+
+                # Step 4: Extract docs inline
+                description = raw.get("description", "")
+                tags = raw.get("tags", [])
+
+                # Step 5: Create Model
+                detail = RecipeDetail(
+                    name=name,
+                    type=config["type"],
+                    engine=config["engine"],
+                    inputs=config["inputs"],
+                    outputs=config["outputs"],
+                    description=description,
+                    tags=tags,
+                    code_snippet=snippet,
+                    config_summary={}  # Empty for now, can be enhanced later
+                )
+                details.append(detail)
+
+            except Exception as e:
+                # Step 6: Log error but continue
+                print(f"Warning: Failed to extract details for {name}: {e}")
+                continue
+
+        return details
