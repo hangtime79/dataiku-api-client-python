@@ -219,3 +219,88 @@ class TestGetDatasetDocs:
 
         assert docs["description"] == ""
         assert docs["tags"] == []
+
+
+class TestGetRecipeConfig:
+    """Tests for _get_recipe_config helper method."""
+
+    @pytest.fixture
+    def mock_recipe(self):
+        """Mock recipe with standard configuration."""
+        recipe = MagicMock()
+        settings = MagicMock()
+        settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {"main": {"ref": "input_ds"}},
+            "outputs": {"main": {"ref": "output_ds"}}
+        }
+        recipe.get_settings.return_value = settings
+        return recipe
+
+    @pytest.fixture
+    def mock_recipe_minimal(self):
+        """Mock recipe with minimal/missing fields."""
+        recipe = MagicMock()
+        settings = MagicMock()
+        settings.get_raw.return_value = {}
+        recipe.get_settings.return_value = settings
+        return recipe
+
+    def test_extracts_basic_fields(self, mock_crawler, mock_recipe):
+        """Test extraction of type, engine, inputs, outputs."""
+        identifier = BlockIdentifier(mock_crawler)
+        config = identifier._get_recipe_config(mock_recipe)
+
+        assert config["type"] == "python"
+        assert config["engine"] == "DSS"
+        assert isinstance(config["inputs"], list)
+        assert isinstance(config["outputs"], list)
+        assert "input_ds" in config["inputs"]
+        assert "output_ds" in config["outputs"]
+
+    def test_handles_missing_fields(self, mock_crawler, mock_recipe_minimal):
+        """Test graceful handling of missing fields."""
+        identifier = BlockIdentifier(mock_crawler)
+        config = identifier._get_recipe_config(mock_recipe_minimal)
+
+        assert config["type"] == "unknown"
+        assert config["engine"] == "DSS"
+        assert config["inputs"] == []
+        assert config["outputs"] == []
+
+
+class TestExtractCodeSnippet:
+    """Tests for _extract_code_snippet helper method."""
+
+    def test_extracts_first_10_lines(self, mock_crawler):
+        """Test extraction of first 10 lines with truncation."""
+        identifier = BlockIdentifier(mock_crawler)
+        settings = {"payload": "\n".join([f"line{i}" for i in range(20)])}
+
+        snippet = identifier._extract_code_snippet(settings)
+
+        assert snippet.count("\n") == 10  # 10 lines + truncation msg
+        assert "truncated" in snippet
+        assert "line0" in snippet
+        assert "line9" in snippet
+        assert "line10" not in snippet
+
+    def test_returns_none_for_no_payload(self, mock_crawler):
+        """Test None return when no code present."""
+        identifier = BlockIdentifier(mock_crawler)
+        settings = {}
+
+        snippet = identifier._extract_code_snippet(settings)
+
+        assert snippet is None
+
+    def test_no_truncation_for_short_code(self, mock_crawler):
+        """Test no truncation indicator for <= 10 lines."""
+        identifier = BlockIdentifier(mock_crawler)
+        settings = {"payload": "line1\nline2\nline3"}
+
+        snippet = identifier._extract_code_snippet(settings)
+
+        assert "truncated" not in snippet
+        assert snippet == "line1\nline2\nline3"

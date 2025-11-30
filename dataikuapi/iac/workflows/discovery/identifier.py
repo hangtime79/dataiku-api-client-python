@@ -588,3 +588,58 @@ class BlockIdentifier:
                 continue
 
         return details
+
+    def _get_recipe_config(self, recipe: Any) -> Dict[str, Any]:
+        """
+        Extracts technical configuration from a recipe.
+
+        Args:
+            recipe: Dataiku recipe object
+
+        Returns:
+            Dict with keys: type, engine, inputs, outputs
+        """
+        # Step 1: Get settings
+        settings = recipe.get_settings()
+        raw = settings.get_raw()
+
+        # Step 2: Extract basic
+        r_type = raw.get("type", "unknown")
+        params = raw.get("params", {})
+        engine = params.get("engineType", "DSS")
+
+        # Step 3: Extract I/O (Flatten to list of names)
+        inputs = [i["ref"] for i in raw.get("inputs", {}).values()]
+        outputs = [o["ref"] for o in raw.get("outputs", {}).values()]
+
+        return {
+            "type": r_type,
+            "engine": engine,
+            "inputs": inputs,
+            "outputs": outputs
+        }
+
+    def _extract_code_snippet(self, raw_settings: Dict) -> Optional[str]:
+        """
+        Extracts first 10 lines of code from recipe payload.
+
+        Args:
+            raw_settings: Raw recipe settings dictionary
+
+        Returns:
+            First 10 lines with truncation indicator, or None if no code
+        """
+        # Step 1: Check payload
+        payload = raw_settings.get("payload")
+        if not payload:
+            return None
+
+        # Step 2: Split and slice
+        lines = payload.strip().split('\n')
+        snippet = '\n'.join(lines[:10])
+
+        # Step 3: Add indicator if truncated
+        if len(lines) > 10:
+            snippet += "\n... (truncated)"
+
+        return snippet
