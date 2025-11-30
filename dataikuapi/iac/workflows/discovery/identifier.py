@@ -9,8 +9,10 @@ import re
 from dataikuapi.iac.workflows.discovery.crawler import FlowCrawler
 from dataikuapi.iac.workflows.discovery.models import (
     BlockMetadata,
+    EnhancedBlockMetadata,
     BlockPort,
     BlockContents,
+    DatasetDetail,
 )
 
 
@@ -144,7 +146,7 @@ class BlockIdentifier:
 
     def extract_block_metadata(
         self, project_key: str, zone_name: str, boundary: Dict[str, Any]
-    ) -> BlockMetadata:
+    ) -> EnhancedBlockMetadata:
         """
         Extract complete block metadata from a zone.
 
@@ -154,7 +156,7 @@ class BlockIdentifier:
             boundary: Zone boundary analysis
 
         Returns:
-            BlockMetadata object with complete block information
+            EnhancedBlockMetadata object with complete block information
 
         Example:
             >>> metadata = identifier.extract_block_metadata("PROJECT", "zone1", boundary)
@@ -184,8 +186,12 @@ class BlockIdentifier:
         # Generate version
         version = self.generate_version(block_id)
 
-        # Create BlockMetadata
-        metadata = BlockMetadata(
+        # Extract dataset details
+        project = self.crawler.client.get_project(project_key)
+        dataset_details = self._extract_dataset_details(project, contents.datasets)
+
+        # Create EnhancedBlockMetadata
+        metadata = EnhancedBlockMetadata(
             block_id=block_id,
             version=version,
             type="zone",
@@ -199,6 +205,7 @@ class BlockIdentifier:
             inputs=inputs,
             outputs=outputs,
             contains=contents,
+            dataset_details=dataset_details,
         )
 
         return metadata
@@ -452,3 +459,132 @@ class BlockIdentifier:
         name = name.title()
 
         return name
+
+    def _get_dataset_config(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Extracts technical configuration from a dataset.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: type, connection, format_type, partitioning
+        """
+        # Step 1: Get settings
+        settings = dataset.get_settings()
+        raw = settings.get_raw()
+
+        # Step 2: Extract basic fields
+        ds_type = raw.get("type", "unknown")
+        params = raw.get("params", {})
+        connection = params.get("connection", "")
+
+        # Step 3: Extract format
+        format_type = raw.get("formatType", "")
+
+        # Step 4: Extract partitioning
+        partitioning = raw.get("partitioning", {}).get("dimensions", [])
+        part_info = f"{len(partitioning)} dims" if partitioning else None
+
+        return {
+            "type": ds_type,
+            "connection": connection,
+            "format_type": format_type,
+            "partitioning": part_info,
+        }
+
+    def _summarize_schema(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Creates a lightweight summary of the dataset schema.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: columns (int), sample (List[str])
+        """
+        try:
+            # Step 1: Get schema
+            schema = dataset.get_schema()
+            columns = schema.get("columns", [])
+
+            # Step 2: Summarize
+            count = len(columns)
+            sample = [c["name"] for c in columns[:5]]
+
+            return {"columns": count, "sample": sample}
+        except Exception:
+            # Step 3: Graceful fallback
+            return {"columns": 0, "sample": []}
+
+    def _get_dataset_docs(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Extracts documentation metadata from a dataset.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: description, tags
+        """
+        # Step 1: Get settings
+        settings = dataset.get_settings()
+        raw = settings.get_raw()
+
+        # Step 2: Extract info
+        description = raw.get("description", "")
+        tags = raw.get("tags", [])
+
+        return {"description": description, "tags": tags}
+
+    def _extract_dataset_details(
+        self, project: Any, dataset_names: List[str]
+    ) -> List[DatasetDetail]:
+        """
+        Extract detailed metadata for multiple datasets.
+
+        Orchestrates the extraction of dataset details by calling helper methods
+        for configuration, schema, and documentation.
+
+        Args:
+            project: Dataiku project object
+            dataset_names: List of dataset names to extract
+
+        Returns:
+            List of DatasetDetail objects
+
+        Example:
+            >>> details = identifier._extract_dataset_details(project, ["ds1", "ds2"])
+            >>> print(f"Extracted {len(details)} dataset details")
+        """
+        details = []
+
+        for name in dataset_names:
+            try:
+                # Step 1: Get object
+                ds = project.get_dataset(name)
+
+                # Step 2: Call helpers
+                config = self._get_dataset_config(ds)
+                schema_sum = self._summarize_schema(ds)
+                docs = self._get_dataset_docs(ds)
+
+                # Step 3: Create Model
+                detail = DatasetDetail(
+                    name=name,
+                    type=config["type"],
+                    connection=config["connection"],
+                    format_type=config["format_type"],
+                    schema_summary=schema_sum,
+                    partitioning=config["partitioning"],
+                    tags=docs["tags"],
+                    description=docs["description"],
+                )
+                details.append(detail)
+
+            except Exception as e:
+                # Step 4: Log error but continue
+                print(f"Warning: Failed to extract details for {name}: {e}")
+                continue
+
+        return details
