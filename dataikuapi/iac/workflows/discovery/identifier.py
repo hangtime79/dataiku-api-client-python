@@ -452,3 +452,36 @@ class BlockIdentifier:
         name = name.title()
 
         return name
+
+    def _get_dataset_config(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Extracts technical configuration from a dataset.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: type, connection, format_type, partitioning
+        """
+        # Step 1: Get settings
+        settings = dataset.get_settings()
+        raw = settings.get_raw()
+
+        # Step 2: Extract basic fields
+        ds_type = raw.get("type", "unknown")
+        params = raw.get("params", {})
+        connection = params.get("connection", "")
+
+        # Step 3: Extract format
+        format_type = raw.get("formatType", "")
+
+        # Step 4: Extract partitioning
+        partitioning = raw.get("partitioning", {}).get("dimensions", [])
+        part_info = f"{len(partitioning)} dims" if partitioning else None
+
+        return {
+            "type": ds_type,
+            "connection": connection,
+            "format_type": format_type,
+            "partitioning": part_info,
+        }
