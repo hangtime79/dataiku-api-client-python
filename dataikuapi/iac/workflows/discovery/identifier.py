@@ -11,6 +11,7 @@ from dataikuapi.iac.workflows.discovery.models import (
     BlockMetadata,
     BlockPort,
     BlockContents,
+    DatasetDetail,
 )
 
 
@@ -529,3 +530,55 @@ class BlockIdentifier:
         tags = raw.get("tags", [])
 
         return {"description": description, "tags": tags}
+
+    def _extract_dataset_details(
+        self, project: Any, dataset_names: List[str]
+    ) -> List[DatasetDetail]:
+        """
+        Extract detailed metadata for multiple datasets.
+
+        Orchestrates the extraction of dataset details by calling helper methods
+        for configuration, schema, and documentation.
+
+        Args:
+            project: Dataiku project object
+            dataset_names: List of dataset names to extract
+
+        Returns:
+            List of DatasetDetail objects
+
+        Example:
+            >>> details = identifier._extract_dataset_details(project, ["ds1", "ds2"])
+            >>> print(f"Extracted {len(details)} dataset details")
+        """
+        details = []
+
+        for name in dataset_names:
+            try:
+                # Step 1: Get object
+                ds = project.get_dataset(name)
+
+                # Step 2: Call helpers
+                config = self._get_dataset_config(ds)
+                schema_sum = self._summarize_schema(ds)
+                docs = self._get_dataset_docs(ds)
+
+                # Step 3: Create Model
+                detail = DatasetDetail(
+                    name=name,
+                    type=config["type"],
+                    connection=config["connection"],
+                    format_type=config["format_type"],
+                    schema_summary=schema_sum,
+                    partitioning=config["partitioning"],
+                    tags=docs["tags"],
+                    description=docs["description"],
+                )
+                details.append(detail)
+
+            except Exception as e:
+                # Step 4: Log error but continue
+                print(f"Warning: Failed to extract details for {name}: {e}")
+                continue
+
+        return details
