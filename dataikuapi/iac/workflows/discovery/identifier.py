@@ -485,3 +485,27 @@ class BlockIdentifier:
             "format_type": format_type,
             "partitioning": part_info,
         }
+
+    def _summarize_schema(self, dataset: Any) -> Dict[str, Any]:
+        """
+        Creates a lightweight summary of the dataset schema.
+
+        Args:
+            dataset: Dataiku dataset object
+
+        Returns:
+            Dict with keys: columns (int), sample (List[str])
+        """
+        try:
+            # Step 1: Get schema
+            schema = dataset.get_schema()
+            columns = schema.get("columns", [])
+
+            # Step 2: Summarize
+            count = len(columns)
+            sample = [c["name"] for c in columns[:5]]
+
+            return {"columns": count, "sample": sample}
+        except Exception:
+            # Step 3: Graceful fallback
+            return {"columns": 0, "sample": []}

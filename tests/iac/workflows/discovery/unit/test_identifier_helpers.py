@@ -105,3 +105,59 @@ class TestGetDatasetConfig:
         config = identifier._get_dataset_config(dataset)
 
         assert config["type"] == "unknown"
+
+
+class TestSummarizeSchema:
+    """Tests for _summarize_schema method."""
+
+    def test_summarize_schema_success(self, identifier, mock_dataset):
+        """Test successful schema summarization."""
+        summary = identifier._summarize_schema(mock_dataset)
+
+        assert summary["columns"] == 10
+        assert len(summary["sample"]) == 5
+        assert summary["sample"][0] == "col_0"
+        assert summary["sample"][4] == "col_4"
+
+    def test_summarize_schema_less_than_five_columns(self, identifier):
+        """Test schema with fewer than 5 columns."""
+        dataset = Mock()
+        dataset.get_schema.return_value = {
+            "columns": [{"name": f"col_{i}"} for i in range(3)]
+        }
+
+        summary = identifier._summarize_schema(dataset)
+
+        assert summary["columns"] == 3
+        assert len(summary["sample"]) == 3
+        assert summary["sample"] == ["col_0", "col_1", "col_2"]
+
+    def test_summarize_schema_empty(self, identifier):
+        """Test dataset with no columns."""
+        dataset = Mock()
+        dataset.get_schema.return_value = {"columns": []}
+
+        summary = identifier._summarize_schema(dataset)
+
+        assert summary["columns"] == 0
+        assert summary["sample"] == []
+
+    def test_summarize_schema_error_handling(self, identifier):
+        """Test graceful error handling when schema fetch fails."""
+        dataset = Mock()
+        dataset.get_schema.side_effect = Exception("API Error")
+
+        summary = identifier._summarize_schema(dataset)
+
+        assert summary["columns"] == 0
+        assert summary["sample"] == []
+
+    def test_summarize_schema_missing_columns_key(self, identifier):
+        """Test handling of malformed schema response."""
+        dataset = Mock()
+        dataset.get_schema.return_value = {}
+
+        summary = identifier._summarize_schema(dataset)
+
+        assert summary["columns"] == 0
+        assert summary["sample"] == []
