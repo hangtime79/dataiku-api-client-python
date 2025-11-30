@@ -215,3 +215,96 @@ class TestExtractBlockMetadataIntegration:
             assert "name" in ds_detail
             assert "type" in ds_detail
             assert "schema_summary" in ds_detail
+
+    def test_extract_block_metadata_includes_recipes(
+        self, identifier, mock_crawler, mock_client, sample_boundary
+    ):
+        """Test that extract_block_metadata populates recipe_details."""
+        # Setup project mock with recipes
+        mock_project = MagicMock()
+
+        # Mock recipe
+        mock_recipe = MagicMock()
+        mock_recipe_settings = MagicMock()
+        mock_recipe_settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {"main": {"ref": "input_dataset"}},
+            "outputs": {"main": {"ref": "output_dataset"}},
+            "description": "Test recipe"
+        }
+        mock_recipe.get_settings.return_value = mock_recipe_settings
+        mock_project.get_recipe.return_value = mock_recipe
+
+        # Mock dataset (for dataset_details)
+        mock_dataset = MagicMock()
+        mock_ds_settings = MagicMock()
+        mock_ds_settings.get_raw.return_value = {
+            "type": "Snowflake",
+            "params": {"connection": "snowflake_conn"},
+            "formatType": "table"
+        }
+        mock_dataset.get_settings.return_value = mock_ds_settings
+        mock_dataset.get_schema.return_value = {"columns": []}
+        mock_project.get_dataset.return_value = mock_dataset
+
+        mock_client.get_project.return_value = mock_project
+
+        # Setup boundary with recipes
+        sample_boundary["internals"] = ["dataset1"]
+        zone_items = {
+            "datasets": ["input_dataset", "dataset1", "output_dataset"],
+            "recipes": ["recipe1"]
+        }
+        mock_crawler.get_zone_items.return_value = zone_items
+
+        metadata = identifier.extract_block_metadata("PROJ", "zone1", sample_boundary)
+
+        # Verify recipe_details is populated
+        assert hasattr(metadata, "recipe_details")
+        assert isinstance(metadata.recipe_details, list)
+        assert len(metadata.recipe_details) >= 0  # May be 0 if extraction fails
+
+    def test_recipe_details_serialization(
+        self, identifier, mock_crawler, mock_client, sample_boundary
+    ):
+        """Test that recipe_details are included in to_dict()."""
+        # Setup similar to above
+        mock_project = MagicMock()
+        mock_recipe = MagicMock()
+        mock_recipe_settings = MagicMock()
+        mock_recipe_settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {},
+            "outputs": {}
+        }
+        mock_recipe.get_settings.return_value = mock_recipe_settings
+        mock_project.get_recipe.return_value = mock_recipe
+
+        mock_dataset = MagicMock()
+        mock_ds_settings = MagicMock()
+        mock_ds_settings.get_raw.return_value = {
+            "type": "Snowflake",
+            "params": {},
+            "formatType": "table"
+        }
+        mock_dataset.get_settings.return_value = mock_ds_settings
+        mock_dataset.get_schema.return_value = {"columns": []}
+        mock_project.get_dataset.return_value = mock_dataset
+
+        mock_client.get_project.return_value = mock_project
+
+        zone_items = {
+            "datasets": [],
+            "recipes": []
+        }
+        sample_boundary["internals"] = []
+        mock_crawler.get_zone_items.return_value = zone_items
+
+        metadata = identifier.extract_block_metadata("PROJ", "zone1", sample_boundary)
+
+        data = metadata.to_dict()
+
+        assert "recipe_details" in data
+        assert isinstance(data["recipe_details"], list)

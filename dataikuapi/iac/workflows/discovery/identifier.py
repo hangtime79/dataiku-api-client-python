@@ -191,6 +191,9 @@ class BlockIdentifier:
         project = self.crawler.client.get_project(project_key)
         dataset_details = self._extract_dataset_details(project, contents.datasets)
 
+        # Extract recipe details
+        recipe_details = self._extract_recipe_details(project, contents.recipes)
+
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
             block_id=block_id,
@@ -207,6 +210,7 @@ class BlockIdentifier:
             outputs=outputs,
             contains=contents,
             dataset_details=dataset_details,
+            recipe_details=recipe_details,
         )
 
         return metadata
