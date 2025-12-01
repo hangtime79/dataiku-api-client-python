@@ -8,7 +8,11 @@ from typing import Dict, List, Any, Optional
 import json
 import re
 from dataikuapi import DSSClient
-from dataikuapi.iac.workflows.discovery.models import BlockMetadata, BlockSummary
+from dataikuapi.iac.workflows.discovery.models import (
+    BlockMetadata,
+    BlockSummary,
+    EnhancedBlockMetadata,
+)
 from dataikuapi.iac.workflows.discovery.exceptions import CatalogWriteError
 
 
@@ -44,6 +48,81 @@ class CatalogWriter:
                    If None, only content generation is available.
         """
         self.client = client
+
+    def _calculate_complexity(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Calculate complexity rating based on number of recipes.
+
+        Args:
+            metadata: EnhancedBlockMetadata object
+
+        Returns:
+            Complexity string: "Simple", "Moderate", or "Complex"
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> complexity = writer._calculate_complexity(metadata)
+            >>> print(complexity)  # "Moderate"
+        """
+        recipe_count = len(metadata.recipe_details)
+        if recipe_count < 3:
+            return "Simple"
+        elif recipe_count < 9:
+            return "Moderate"
+        else:
+            return "Complex"
+
+    def _estimate_data_volume(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Estimate data volume for the block.
+
+        Currently returns a simple count of datasets.
+        Future enhancement: Parse size strings from DatasetDetail.
+
+        Args:
+            metadata: EnhancedBlockMetadata object
+
+        Returns:
+            Data volume estimate string
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> volume = writer._estimate_data_volume(metadata)
+            >>> print(volume)  # "~5 Datasets"
+        """
+        dataset_count = len(metadata.dataset_details)
+        return f"~{dataset_count} Datasets"
+
+    def _generate_quick_summary(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Generate quick summary markdown block for wiki article.
+
+        Creates a blockquote with key metrics:
+        - Quick Summary (description)
+        - Complexity rating
+        - Recipe count
+        - Dataset count
+
+        Args:
+            metadata: EnhancedBlockMetadata object
+
+        Returns:
+            Formatted markdown blockquote string
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> summary = writer._generate_quick_summary(metadata)
+            >>> print(summary)
+            > **Quick Summary**: Feature engineering pipeline
+            > **Complexity**: Moderate | **Recipes**: 5 | **Datasets**: 3
+        """
+        complexity = self._calculate_complexity(metadata)
+        recipes = len(metadata.recipe_details)
+        datasets = len(metadata.dataset_details)
+        description = metadata.description or "No description provided."
+
+        return f"""> **Quick Summary**: {description}
+> **Complexity**: {complexity} | **Recipes**: {recipes} | **Datasets**: {datasets}"""
 
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
@@ -81,6 +160,11 @@ class CatalogWriter:
         title = metadata.name or metadata.block_id
         sections.append(f"# {title}")
         sections.append("")
+
+        # 2.5. Quick Summary (if EnhancedBlockMetadata)
+        if isinstance(metadata, EnhancedBlockMetadata):
+            sections.append(self._generate_quick_summary(metadata))
+            sections.append("")
 
         # 3. Description
         sections.append("## Description")
