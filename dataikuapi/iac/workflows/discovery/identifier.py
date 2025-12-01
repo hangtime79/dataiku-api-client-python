@@ -14,6 +14,8 @@ from dataikuapi.iac.workflows.discovery.models import (
     BlockContents,
     DatasetDetail,
     RecipeDetail,
+    LibraryReference,
+    NotebookReference,
 )
 
 
@@ -708,3 +710,60 @@ class BlockIdentifier:
                 continue
 
         return details
+
+    def _extract_library_refs(self, project: Any) -> List[LibraryReference]:
+        """
+        Extract references to library files in the project.
+
+        Scans python/ and R/ library folders and creates LibraryReference
+        objects for each file found.
+
+        Args:
+            project: Dataiku project object
+
+        Returns:
+            List of LibraryReference objects
+
+        Example:
+            >>> refs = identifier._extract_library_refs(project)
+            >>> print(f"Found {len(refs)} library files")
+        """
+        refs = []
+
+        try:
+            library = project.get_library()
+
+            # Scan python library
+            try:
+                python_folder = library.root.get_child("python")
+                if python_folder and python_folder.children:
+                    for item in python_folder.list():
+                        # Only include files, not folders (children is None for files)
+                        if item.children is None:
+                            refs.append(LibraryReference(
+                                name=item.name,
+                                type="python",
+                                description="Project Library (Python)"
+                            ))
+            except Exception:
+                pass  # python/ folder might not exist
+
+            # Scan R library
+            try:
+                r_folder = library.root.get_child("R")
+                if r_folder and r_folder.children:
+                    for item in r_folder.list():
+                        # Only include files, not folders
+                        if item.children is None:
+                            refs.append(LibraryReference(
+                                name=item.name,
+                                type="R",
+                                description="Project Library (R)"
+                            ))
+            except Exception:
+                pass  # R/ folder might not exist
+
+        except Exception as e:
+            print(f"Warning: Failed to extract library references: {e}")
+
+        return refs
