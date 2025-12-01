@@ -95,10 +95,40 @@ def test_extract_block_metadata_includes_details(self, mock_project):
 
 ## Merge Instructions
 
-### Branch
+**IMPORTANT:** Before starting, read `DEVELOPMENT_PROCESS.md` for complete workflow.
 
-```bash
-git checkout Reusable_Workflows
-git pull origin Reusable_Workflows
-git checkout -b feature/P1-F005-integrate-dataset-extraction
-```
+### Pre-Development Checklist
+
+1. **Check for outstanding PRs:**
+   ```bash
+   gh pr list --repo hangtime79/dataiku-api-client-python --state open
+   ```
+   - If ANY open PRs exist: **STOP!** Wait for them to be merged first.
+   - If NO open PRs: Proceed to step 2.
+
+2. **Sync local master:**
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+3. **Create feature branch from master:**
+   ```bash
+   git checkout -b feature/p1-f005
+   ```
+
+### After Implementation
+
+4. **Push feature branch:**
+   ```bash
+   git push -u origin feature/p1-f005
+   ```
+
+5. **Create PR to master:**
+   ```bash
+   gh pr create --base master --title "feat(p1-f005): <description>"
+   ```
+
+**Never use Reusable_Workflows branch!**
+
+---

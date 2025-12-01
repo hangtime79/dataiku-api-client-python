@@ -21,3 +21,19 @@ This directory contains the atomic feature specifications for the Discovery Agen
 ## Usage
 
 Each file represents a single, atomic task executable by an AI agent.
+
+## Development Process
+
+**IMPORTANT:** Before implementing ANY feature, read [`DEVELOPMENT_PROCESS.md`](DEVELOPMENT_PROCESS.md) for the complete workflow.
+
+### Quick Start
+
+1. **Check for open PRs** - If any exist, STOP and wait
+2. **Sync master** - `git pull origin master`
+3. **Create feature branch** - `git checkout -b feature/PX-FXXX-name`
+4. **Implement & test**
+5. **Push & create PR to master**
+
+**Never use Reusable_Workflows branch!** Always work from `master`.
+
+See [`DEVELOPMENT_PROCESS.md`](DEVELOPMENT_PROCESS.md) for detailed instructions.
