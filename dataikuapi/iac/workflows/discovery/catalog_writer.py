@@ -12,6 +12,10 @@ from dataikuapi.iac.workflows.discovery.models import (
     BlockMetadata,
     BlockSummary,
     EnhancedBlockMetadata,
+    DatasetDetail,
+    RecipeDetail,
+    LibraryReference,
+    NotebookReference,
 )
 from dataikuapi.iac.workflows.discovery.exceptions import CatalogWriteError
 
@@ -164,6 +168,171 @@ class CatalogWriter:
 - [Technical Details](#technical-details) _(Coming soon)_
 """
 
+    def _generate_datasets_section(self, datasets: List[DatasetDetail]) -> str:
+        """
+        Generate datasets subsection with collapsible HTML details.
+
+        Creates a collapsible section listing all internal datasets with:
+        - Dataset name and type
+        - Purpose/description
+        - Schema column count
+        - Tags (if present)
+
+        Args:
+            datasets: List of DatasetDetail objects
+
+        Returns:
+            Formatted markdown string with HTML details block, or empty string if no datasets
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> ds = DatasetDetail(name="CUSTOMERS", type="S3", ...)
+            >>> section = writer._generate_datasets_section([ds])
+            >>> print("<details>" in section)
+            True
+        """
+        if not datasets:
+            return ""
+
+        md = f"### Datasets\n\n<details>\n<summary><b>{len(datasets)} internal datasets</b> - Click to expand</summary>\n\n"
+
+        for ds in datasets:
+            cols = ds.schema_summary.get("columns", "?")
+            md += f"#### `{ds.name}` ({ds.type})\n"
+            md += f"- **Purpose**: {ds.description or 'No description'}\n"
+            md += f"- **Schema**: {cols} columns\n"
+            if ds.tags:
+                md += f"- **Tags**: `{', '.join(ds.tags)}`\n"
+            md += "\n"
+
+        md += "</details>\n\n"
+        return md
+
+    def _generate_recipes_section(self, recipes: List[RecipeDetail]) -> str:
+        """
+        Generate recipes subsection with collapsible HTML details.
+
+        Creates a collapsible section listing all recipes with:
+        - Recipe name and type
+        - Input and output datasets
+        - Code snippet preview (if available)
+
+        Args:
+            recipes: List of RecipeDetail objects
+
+        Returns:
+            Formatted markdown string with HTML details block, or empty string if no recipes
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> rc = RecipeDetail(name="compute_X", type="python", ...)
+            >>> section = writer._generate_recipes_section([rc])
+            >>> print("<details>" in section)
+            True
+        """
+        if not recipes:
+            return ""
+
+        md = f"### Recipes\n\n<details>\n<summary><b>{len(recipes)} recipes</b> - Click to expand</summary>\n\n"
+
+        for rc in recipes:
+            md += f"#### `{rc.name}` ({rc.type})\n"
+            md += f"**Inputs**: {', '.join(rc.inputs)} → **Outputs**: {', '.join(rc.outputs)}\n\n"
+
+            if rc.code_snippet:
+                md += "**Logic Preview**:\n"
+                md += f"```python\n{rc.code_snippet}\n```\n"
+
+            md += "\n"
+
+        md += "</details>\n\n"
+        return md
+
+    def _generate_libraries_section(self, libs: List[LibraryReference]) -> str:
+        """
+        Generate libraries subsection with simple bulleted list.
+
+        Creates a section listing all project libraries with:
+        - Library name and type
+
+        Args:
+            libs: List of LibraryReference objects
+
+        Returns:
+            Formatted markdown string with bulleted list, or empty string if no libraries
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> lib = LibraryReference(name="utils.py", type="python")
+            >>> section = writer._generate_libraries_section([lib])
+            >>> print("utils.py" in section)
+            True
+        """
+        if not libs:
+            return ""
+
+        md = "### Project Libraries\n\n"
+        for lib in libs:
+            md += f"- `{lib.name}` ({lib.type})\n"
+        return md + "\n"
+
+    def _generate_notebooks_section(self, notebooks: List[NotebookReference]) -> str:
+        """
+        Generate notebooks subsection with simple bulleted list.
+
+        Creates a section listing all notebooks with:
+        - Notebook name and type
+
+        Args:
+            notebooks: List of NotebookReference objects
+
+        Returns:
+            Formatted markdown string with bulleted list, or empty string if no notebooks
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> nb = NotebookReference(name="EDA", type="jupyter")
+            >>> section = writer._generate_notebooks_section([nb])
+            >>> print("EDA" in section)
+            True
+        """
+        if not notebooks:
+            return ""
+
+        md = "### Notebooks\n\n"
+        for nb in notebooks:
+            md += f"- `{nb.name}` ({nb.type})\n"
+        return md + "\n"
+
+    def _generate_components_section(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Generate Internal Components section with all subsections.
+
+        Orchestrates the generation of:
+        - Datasets subsection
+        - Recipes subsection
+        - Libraries subsection
+        - Notebooks subsection
+
+        Args:
+            metadata: EnhancedBlockMetadata with detail lists
+
+        Returns:
+            Formatted markdown string with all component subsections
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> section = writer._generate_components_section(metadata)
+            >>> print("## Internal Components" in section)
+            True
+        """
+        md = "## Internal Components\n\n"
+        md += self._generate_datasets_section(metadata.dataset_details)
+        md += self._generate_recipes_section(metadata.recipe_details)
+        md += self._generate_libraries_section(metadata.library_refs)
+        md += self._generate_notebooks_section(metadata.notebook_refs)
+        return md
+
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
         Generate wiki article from block metadata.
@@ -208,6 +377,10 @@ class CatalogWriter:
 
             # 2.6. Navigation Menu (if EnhancedBlockMetadata)
             sections.append(self._generate_navigation_menu(metadata))
+            sections.append("")
+
+            # 2.7. Internal Components (if EnhancedBlockMetadata)
+            sections.append(self._generate_components_section(metadata))
             sections.append("")
 
         # 3. Description

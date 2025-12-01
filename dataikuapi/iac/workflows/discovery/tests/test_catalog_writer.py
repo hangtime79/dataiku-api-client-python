@@ -583,3 +583,63 @@ class TestErrorHandling:
         result = writer.merge_wiki_article(malformed, metadata)
         assert result is not None
         assert "TEST_BLOCK" in result
+
+    def test_wiki_includes_components(self):
+        """Test that wiki article includes Internal Components section (P7-F004)."""
+        from dataikuapi.iac.workflows.discovery.catalog_writer import CatalogWriter
+        from dataikuapi.iac.workflows.discovery.models import (
+            EnhancedBlockMetadata,
+            BlockContents,
+            DatasetDetail,
+            RecipeDetail,
+            LibraryReference,
+            NotebookReference,
+        )
+
+        writer = CatalogWriter()
+
+        # Create EnhancedBlockMetadata with all component details
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            inputs=[],
+            outputs=[],
+            contains=BlockContents(),
+            dataset_details=[
+                DatasetDetail(
+                    name="DS1",
+                    type="S3",
+                    connection="s3-conn",
+                    format_type="parquet",
+                    schema_summary={"columns": 5},
+                )
+            ],
+            recipe_details=[
+                RecipeDetail(
+                    name="compute_metrics",
+                    type="python",
+                    engine="DSS",
+                    inputs=["DS1"],
+                    outputs=["DS2"],
+                )
+            ],
+            library_refs=[LibraryReference(name="utils.py", type="python")],
+            notebook_refs=[NotebookReference(name="Analysis", type="jupyter")],
+        )
+
+        article = writer.generate_wiki_article(metadata)
+
+        # Verify components section appears
+        assert "## Internal Components" in article
+        assert "### Datasets" in article
+        assert "### Recipes" in article
+        assert "### Project Libraries" in article
+        assert "### Notebooks" in article
+
+        # Verify specific component content
+        assert "DS1" in article
+        assert "compute_metrics" in article
+        assert "utils.py" in article
+        assert "Analysis" in article
