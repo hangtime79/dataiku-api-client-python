@@ -304,3 +304,141 @@ class TestExtractCodeSnippet:
 
         assert "truncated" not in snippet
         assert snippet == "line1\nline2\nline3"
+
+
+@pytest.fixture
+def mock_library():
+    """Create a mock library with python and R folders."""
+    library = Mock()
+    root = Mock()
+
+    # Mock python folder with 2 files
+    python_folder = Mock()
+    python_file1 = Mock()
+    python_file1.name = "utils.py"
+    python_file1.children = None  # File indicator
+    python_file2 = Mock()
+    python_file2.name = "helpers.py"
+    python_file2.children = None
+    python_folder.children = {python_file1, python_file2}
+    python_folder.list.return_value = [python_file1, python_file2]
+
+    # Mock R folder with 1 file
+    r_folder = Mock()
+    r_file = Mock()
+    r_file.name = "analysis.R"
+    r_file.children = None
+    r_folder.children = {r_file}
+    r_folder.list.return_value = [r_file]
+
+    # Wire up get_child
+    def get_child_side_effect(name):
+        if name == "python":
+            return python_folder
+        elif name == "R":
+            return r_folder
+        return None
+
+    root.get_child.side_effect = get_child_side_effect
+    library.root = root
+
+    return library
+
+
+@pytest.fixture
+def mock_notebooks():
+    """Create mock notebook list items."""
+    nb1 = Mock()
+    nb1.name = "exploration.ipynb"
+    nb1.language = "python"
+
+    nb2 = Mock()
+    nb2.name = "analysis.ipynb"
+    nb2.language = "python"
+
+    return [nb1, nb2]
+
+
+class TestExtractLibraryRefs:
+    """Tests for _extract_library_refs method."""
+
+    def test_extract_library_refs_success(self, identifier, mock_library):
+        """Test successful extraction of library files."""
+        project = Mock()
+        project.get_library.return_value = mock_library
+
+        refs = identifier._extract_library_refs(project)
+
+        assert len(refs) == 3  # 2 python + 1 R
+
+        # Check python files
+        python_refs = [r for r in refs if r.type == "python"]
+        assert len(python_refs) == 2
+        assert any(r.name == "utils.py" for r in python_refs)
+        assert any(r.name == "helpers.py" for r in python_refs)
+
+        # Check R files
+        r_refs = [r for r in refs if r.type == "R"]
+        assert len(r_refs) == 1
+        assert r_refs[0].name == "analysis.R"
+
+    def test_extract_library_refs_empty_library(self, identifier):
+        """Test extraction with no library files."""
+        project = Mock()
+        library = Mock()
+        root = Mock()
+        root.get_child.return_value = None  # No python or R folders
+        library.root = root
+        project.get_library.return_value = library
+
+        refs = identifier._extract_library_refs(project)
+
+        assert refs == []
+
+    def test_extract_library_refs_error(self, identifier, capsys):
+        """Test extraction handles errors gracefully."""
+        project = Mock()
+        project.get_library.side_effect = Exception("Library access failed")
+
+        refs = identifier._extract_library_refs(project)
+
+        assert refs == []  # Should return empty list, not raise
+
+
+class TestExtractNotebookRefs:
+    """Tests for _extract_notebook_refs method."""
+
+    def test_extract_notebook_refs_success(self, identifier, mock_notebooks):
+        """Test successful extraction of notebooks."""
+        project = Mock()
+        project.list_jupyter_notebooks.return_value = mock_notebooks
+
+        refs = identifier._extract_notebook_refs(project)
+
+        assert len(refs) == 2
+        assert all(r.type == "jupyter" for r in refs)
+        assert any(r.name == "exploration.ipynb" for r in refs)
+        assert any(r.name == "analysis.ipynb" for r in refs)
+
+        # Verify correct API call
+        project.list_jupyter_notebooks.assert_called_once_with(
+            active=False, as_type="listitems"
+        )
+
+    def test_extract_notebook_refs_empty(self, identifier):
+        """Test extraction with no notebooks."""
+        project = Mock()
+        project.list_jupyter_notebooks.return_value = []
+
+        refs = identifier._extract_notebook_refs(project)
+
+        assert refs == []
+
+    def test_extract_notebook_refs_error(self, identifier, capsys):
+        """Test extraction handles errors gracefully."""
+        project = Mock()
+        project.list_jupyter_notebooks.side_effect = Exception("Notebook access failed")
+
+        refs = identifier._extract_notebook_refs(project)
+
+        assert refs == []  # Should return empty list, not raise

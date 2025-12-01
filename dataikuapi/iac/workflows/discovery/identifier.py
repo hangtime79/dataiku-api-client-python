@@ -14,6 +14,8 @@ from dataikuapi.iac.workflows.discovery.models import (
     BlockContents,
     DatasetDetail,
     RecipeDetail,
+    LibraryReference,
+    NotebookReference,
 )
 
 
@@ -194,6 +196,12 @@ class BlockIdentifier:
         # Extract recipe details
         recipe_details = self._extract_recipe_details(project, contents.recipes)
 
+        # Extract library references
+        library_refs = self._extract_library_refs(project)
+
+        # Extract notebook references
+        notebook_refs = self._extract_notebook_refs(project)
+
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
             block_id=block_id,
@@ -211,6 +219,8 @@ class BlockIdentifier:
             contains=contents,
             dataset_details=dataset_details,
             recipe_details=recipe_details,
+            library_refs=library_refs,
+            notebook_refs=notebook_refs,
         )
 
         return metadata
@@ -708,3 +718,95 @@ class BlockIdentifier:
                 continue
 
         return details
+
+    def _extract_library_refs(self, project: Any) -> List[LibraryReference]:
+        """
+        Extract references to library files in the project.
+
+        Scans python/ and R/ library folders and creates LibraryReference
+        objects for each file found.
+
+        Args:
+            project: Dataiku project object
+
+        Returns:
+            List of LibraryReference objects
+
+        Example:
+            >>> refs = identifier._extract_library_refs(project)
+            >>> print(f"Found {len(refs)} library files")
+        """
+        refs = []
+
+        try:
+            library = project.get_library()
+
+            # Scan python library
+            try:
+                python_folder = library.root.get_child("python")
+                if python_folder and python_folder.children:
+                    for item in python_folder.list():
+                        # Only include files, not folders (children is None for files)
+                        if item.children is None:
+                            refs.append(LibraryReference(
+                                name=item.name,
+                                type="python",
+                                description="Project Library (Python)"
+                            ))
+            except Exception:
+                pass  # python/ folder might not exist
+
+            # Scan R library
+            try:
+                r_folder = library.root.get_child("R")
+                if r_folder and r_folder.children:
+                    for item in r_folder.list():
+                        # Only include files, not folders
+                        if item.children is None:
+                            refs.append(LibraryReference(
+                                name=item.name,
+                                type="R",
+                                description="Project Library (R)"
+                            ))
+            except Exception:
+                pass  # R/ folder might not exist
+
+        except Exception as e:
+            print(f"Warning: Failed to extract library references: {e}")
+
+        return refs
+
+    def _extract_notebook_refs(self, project: Any) -> List[NotebookReference]:
+        """
+        Extract references to Jupyter notebooks in the project.
+
+        Lists all Jupyter notebooks and creates NotebookReference objects.
+
+        Args:
+            project: Dataiku project object
+
+        Returns:
+            List of NotebookReference objects
+
+        Example:
+            >>> refs = identifier._extract_notebook_refs(project)
+            >>> print(f"Found {len(refs)} notebooks")
+        """
+        refs = []
+
+        try:
+            # Get notebook list (using listitems for lightweight metadata)
+            notebooks = project.list_jupyter_notebooks(active=False, as_type="listitems")
+
+            for nb in notebooks:
+                refs.append(NotebookReference(
+                    name=nb.name,
+                    type="jupyter",  # All Jupyter notebooks map to "jupyter"
+                    description="Jupyter Notebook",
+                    tags=[]  # Tags not available in listitem metadata
+                ))
+
+        except Exception as e:
+            print(f"Warning: Failed to extract notebook references: {e}")
+
+        return refs
