@@ -767,3 +767,38 @@ class BlockIdentifier:
             print(f"Warning: Failed to extract library references: {e}")
 
         return refs
+
+    def _extract_notebook_refs(self, project: Any) -> List[NotebookReference]:
+        """
+        Extract references to Jupyter notebooks in the project.
+
+        Lists all Jupyter notebooks and creates NotebookReference objects.
+
+        Args:
+            project: Dataiku project object
+
+        Returns:
+            List of NotebookReference objects
+
+        Example:
+            >>> refs = identifier._extract_notebook_refs(project)
+            >>> print(f"Found {len(refs)} notebooks")
+        """
+        refs = []
+
+        try:
+            # Get notebook list (using listitems for lightweight metadata)
+            notebooks = project.list_jupyter_notebooks(active=False, as_type="listitems")
+
+            for nb in notebooks:
+                refs.append(NotebookReference(
+                    name=nb.name,
+                    type="jupyter",  # All Jupyter notebooks map to "jupyter"
+                    description="Jupyter Notebook",
+                    tags=[]  # Tags not available in listitem metadata
+                ))
+
+        except Exception as e:
+            print(f"Warning: Failed to extract notebook references: {e}")
+
+        return refs
