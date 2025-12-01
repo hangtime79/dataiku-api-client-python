@@ -143,6 +143,138 @@ class TestCatalogWriter:
         assert "ref:" in article
         assert "TEST_BLOCK@1.0.0" in article
 
+    def test_wiki_includes_quick_summary_with_enhanced_metadata(self):
+        """Test that wiki article includes quick summary for EnhancedBlockMetadata."""
+        from dataikuapi.iac.workflows.discovery.catalog_writer import CatalogWriter
+        from dataikuapi.iac.workflows.discovery.models import (
+            EnhancedBlockMetadata,
+            BlockPort,
+            BlockContents,
+            RecipeDetail,
+            DatasetDetail,
+        )
+
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="Test Block",
+            description="Test enhanced block",
+            inputs=[BlockPort(name="input1", type="dataset")],
+            outputs=[BlockPort(name="output1", type="dataset")],
+            contains=BlockContents(),
+            recipe_details=[
+                RecipeDetail(
+                    name="recipe1",
+                    type="python",
+                    engine="DSS",
+                    inputs=["ds1"],
+                    outputs=["ds2"],
+                )
+            ],
+            dataset_details=[
+                DatasetDetail(
+                    name="DS1",
+                    type="Snowflake",
+                    connection="snowflake",
+                    format_type="table",
+                    schema_summary={"columns": 5},
+                )
+            ],
+        )
+
+        writer = CatalogWriter()
+        article = writer.generate_wiki_article(metadata)
+
+        # Check that quick summary is present
+        assert "> **Quick Summary**" in article
+        assert "Test enhanced block" in article
+        assert "**Complexity**" in article
+        assert "**Recipes**" in article
+        assert "**Datasets**" in article
+
+    def test_wiki_no_quick_summary_with_basic_metadata(self):
+        """Test that wiki article does NOT include quick summary for basic BlockMetadata."""
+        from dataikuapi.iac.workflows.discovery.catalog_writer import CatalogWriter
+        from dataikuapi.iac.workflows.discovery.models import (
+            BlockMetadata,
+            BlockPort,
+            BlockContents,
+        )
+
+        metadata = BlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="Test Block",
+            description="Basic test block",
+            inputs=[BlockPort(name="input1", type="dataset")],
+            outputs=[BlockPort(name="output1", type="dataset")],
+            contains=BlockContents(),
+        )
+
+        writer = CatalogWriter()
+        article = writer.generate_wiki_article(metadata)
+
+        # Check that quick summary is NOT present
+        assert "> **Quick Summary**" not in article
+        assert "**Complexity**" not in article
+
+    def test_wiki_quick_summary_positioned_correctly(self):
+        """Test that quick summary appears after title and before description."""
+        from dataikuapi.iac.workflows.discovery.catalog_writer import CatalogWriter
+        from dataikuapi.iac.workflows.discovery.models import (
+            EnhancedBlockMetadata,
+            BlockPort,
+            BlockContents,
+            RecipeDetail,
+            DatasetDetail,
+        )
+
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="Test Block",
+            description="Test description",
+            inputs=[BlockPort(name="input1", type="dataset")],
+            outputs=[BlockPort(name="output1", type="dataset")],
+            contains=BlockContents(),
+            recipe_details=[
+                RecipeDetail(
+                    name="recipe1",
+                    type="python",
+                    engine="DSS",
+                    inputs=["ds1"],
+                    outputs=["ds2"],
+                )
+            ],
+            dataset_details=[
+                DatasetDetail(
+                    name="DS1",
+                    type="Snowflake",
+                    connection="snowflake",
+                    format_type="table",
+                    schema_summary={"columns": 5},
+                )
+            ],
+        )
+
+        writer = CatalogWriter()
+        article = writer.generate_wiki_article(metadata)
+
+        # Find positions
+        title_pos = article.find("# Test Block")
+        summary_pos = article.find("> **Quick Summary**")
+        description_header_pos = article.find("## Description")
+
+        # Verify ordering: title < summary < description
+        assert title_pos < summary_pos, "Title should come before summary"
+        assert summary_pos < description_header_pos, "Summary should come before description section"
+
 
 class TestJSONIndex:
     """Test suite for JSON index generation."""
