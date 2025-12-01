@@ -202,6 +202,14 @@ class BlockIdentifier:
         # Extract notebook references
         notebook_refs = self._extract_notebook_refs(project)
 
+        # Extract flow graph (Phase 4)
+        nodes = self._extract_graph_nodes(boundary, contents)
+        edges = self._extract_graph_edges(project, contents.recipes)
+        flow_graph = {
+            "nodes": nodes,
+            "edges": edges
+        }
+
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
             block_id=block_id,
@@ -221,6 +229,7 @@ class BlockIdentifier:
             recipe_details=recipe_details,
             library_refs=library_refs,
             notebook_refs=notebook_refs,
+            flow_graph=flow_graph,
         )
 
         return metadata

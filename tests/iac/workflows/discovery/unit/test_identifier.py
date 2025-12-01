@@ -385,3 +385,78 @@ class TestExtractBlockMetadataIntegration:
         metadata_dict = metadata.to_dict()
         assert "library_refs" in metadata_dict
         assert "notebook_refs" in metadata_dict
+
+    def test_extract_block_metadata_includes_flow_graph(
+        self, identifier, mock_crawler, mock_client, sample_boundary
+    ):
+        """Test that metadata includes populated flow_graph field."""
+        # Setup: Mock project with dataset and recipe
+        mock_project = Mock()
+        mock_dataset = Mock()
+        mock_ds_settings = Mock()
+        mock_ds_settings.get_raw.return_value = {
+            "type": "Snowflake",
+            "formatType": "table"
+        }
+        mock_dataset.get_settings.return_value = mock_ds_settings
+        mock_dataset.get_schema.return_value = {"columns": []}
+        mock_project.get_dataset.return_value = mock_dataset
+
+        # Mock recipe with inputs/outputs
+        mock_recipe = Mock()
+        mock_recipe_settings = Mock()
+        mock_recipe_settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {"main": {"ref": "input_dataset"}},
+            "outputs": {"main": {"ref": "output_dataset"}}
+        }
+        mock_recipe.get_settings.return_value = mock_recipe_settings
+        mock_project.get_recipe.return_value = mock_recipe
+
+        mock_client.get_project.return_value = mock_project
+
+        # Setup zone items with recipes
+        zone_items = {
+            "datasets": ["output_dataset"],
+            "recipes": ["compute_recipe"]
+        }
+        sample_boundary["internals"] = ["internal_ds"]
+        mock_crawler.get_zone_items.return_value = zone_items
+
+        # Setup zone metadata
+        zone = Mock()
+        zone_settings = Mock()
+        zone_settings.get_raw.return_value = {
+            "tags": [],
+            "shortDesc": "",
+            "checklists": {}
+        }
+        zone.get_settings.return_value = zone_settings
+        mock_project.get_zone.return_value = zone
+
+        # Extract metadata
+        metadata = identifier.extract_block_metadata(
+            "TEST_PROJECT", "test_zone", sample_boundary
+        )
+
+        # Verify flow_graph exists and has correct structure
+        assert metadata.flow_graph is not None
+        assert "nodes" in metadata.flow_graph
+        assert "edges" in metadata.flow_graph
+        assert isinstance(metadata.flow_graph["nodes"], list)
+        assert isinstance(metadata.flow_graph["edges"], list)
+
+        # Verify nodes contain expected items
+        node_ids = [n["id"] for n in metadata.flow_graph["nodes"]]
+        assert "input_dataset" in node_ids  # From boundary inputs
+        assert "output_dataset" in node_ids  # From boundary outputs
+        assert "compute_recipe" in node_ids  # From recipes
+
+        # Verify edges exist
+        assert len(metadata.flow_graph["edges"]) > 0
+
+        # Verify edge structure
+        edge = metadata.flow_graph["edges"][0]
+        assert "source" in edge
+        assert "target" in edge
