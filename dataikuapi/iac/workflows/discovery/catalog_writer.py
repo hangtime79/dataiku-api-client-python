@@ -165,7 +165,7 @@ class CatalogWriter:
 - [Dependencies](#dependencies)
 - [Usage](#usage)
 - [Flow Diagram](#flow-diagram)
-- [Technical Details](#technical-details) _(Coming soon)_
+- [Technical Details](#technical-details)
 """
 
     def _generate_datasets_section(self, datasets: List[DatasetDetail]) -> str:
@@ -401,6 +401,51 @@ class CatalogWriter:
 
         return "\n".join(mermaid_lines) + "\n"
 
+    def _generate_technical_details(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Generate Technical Details section with dataset schemas.
+
+        Creates a collapsible section for each dataset showing:
+        - Dataset name and schema column summary
+        - Column sample as markdown table
+        - Link to full schema JSON file in Library
+
+        Args:
+            metadata: EnhancedBlockMetadata with dataset_details
+
+        Returns:
+            Formatted markdown string with schema details, or empty string if no datasets
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> ds = DatasetDetail(name="DS1", schema_summary={"sample": ["col1", "col2"]})
+            >>> meta = EnhancedBlockMetadata(block_id="BLK", dataset_details=[ds])
+            >>> section = writer._generate_technical_details(meta)
+            >>> print("Schema: DS1" in section)
+            True
+        """
+        # Early return if no datasets
+        if not metadata.dataset_details:
+            return ""
+
+        md = "## Technical Details\n\n"
+        md += "### Dataset Schemas\n\n"
+
+        for ds in metadata.dataset_details:
+            md += f"<details>\n<summary>Schema: {ds.name}</summary>\n\n"
+            md += "| Column | Type |\n|---|---|\n"
+
+            # Extract sample columns from schema_summary
+            sample_columns = ds.schema_summary.get("sample", [])
+            for col in sample_columns:
+                md += f"| {col} | - |\n"
+
+            # Add link to full schema JSON file
+            md += f"\n[Download Full Schema (JSON)](schemas/{metadata.block_id}_{ds.name}.schema.json)\n"
+            md += "</details>\n\n"
+
+        return md
+
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
         Generate wiki article from block metadata.
@@ -487,6 +532,13 @@ class CatalogWriter:
                 sections.append("## Flow Diagram")
                 sections.append("")
                 sections.append(self._generate_flow_diagram(metadata.flow_graph))
+                sections.append("")
+
+        # 5.6 Technical Details (if EnhancedBlockMetadata)
+        if isinstance(metadata, EnhancedBlockMetadata):
+            tech_details = self._generate_technical_details(metadata)
+            if tech_details:
+                sections.append(tech_details)
                 sections.append("")
 
         # 6. Contains Section

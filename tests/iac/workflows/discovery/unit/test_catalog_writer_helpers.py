@@ -304,9 +304,9 @@ class TestGenerateNavigationMenu:
         assert "Datasets (2)" in nav
         assert "Recipes (1)" in nav
 
-        # Verify future sections
+        # Verify all sections
         assert "[Flow Diagram](#flow-diagram)" in nav
-        assert "_(Coming soon)_" in nav
+        assert "[Technical Details](#technical-details)" in nav
 
     def test_generate_navigation_menu_zero_items(self):
         """Test navigation menu with no datasets or recipes."""
@@ -423,5 +423,6 @@ class TestWikiArticleFlowDiagram:
         )
         assert "- [Flow Diagram](#flow-diagram) _(Coming soon)_" not in nav
 
-        # Technical Details should still have "Coming soon" (future phase)
-        assert "- [Technical Details](#technical-details) _(Coming soon)_" in nav
+        # Technical Details should not have "Coming soon" (implemented in P9-F001)
+        assert "- [Technical Details](#technical-details)\n" in nav
+        assert "- [Technical Details](#technical-details) _(Coming soon)_" not in nav
