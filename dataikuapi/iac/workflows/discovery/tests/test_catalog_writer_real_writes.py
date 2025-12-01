@@ -35,6 +35,7 @@ TEST_PROJECT = "COALSHIPPINGSIMULATIONGSC"
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def real_writer(real_client):
     """Create CatalogWriter with real DSSClient."""
@@ -61,7 +62,7 @@ def test_block():
                 type="dataset",
                 required=True,
                 description="Test input dataset",
-                schema_ref="schemas/TEST_CATALOG_BLOCK_001_test_input.schema.json"
+                schema_ref="schemas/TEST_CATALOG_BLOCK_001_test_input.schema.json",
             )
         ],
         outputs=[
@@ -70,27 +71,22 @@ def test_block():
                 type="dataset",
                 required=True,
                 description="Test output dataset",
-                schema_ref="schemas/TEST_CATALOG_BLOCK_001_test_output.schema.json"
+                schema_ref="schemas/TEST_CATALOG_BLOCK_001_test_output.schema.json",
             )
         ],
         contains=BlockContents(
-            datasets=["test_dataset"],
-            recipes=["test_recipe"],
-            models=[]
+            datasets=["test_dataset"], recipes=["test_recipe"], models=[]
         ),
     )
 
     # Add schemas (as schema_extractor would do)
     block.inputs[0].schema = {
-        "columns": [
-            {"name": "id", "type": "int"},
-            {"name": "name", "type": "string"}
-        ]
+        "columns": [{"name": "id", "type": "int"}, {"name": "name", "type": "string"}]
     }
     block.outputs[0].schema = {
         "columns": [
             {"name": "result", "type": "string"},
-            {"name": "timestamp", "type": "date"}
+            {"name": "timestamp", "type": "date"},
         ]
     }
 
@@ -180,7 +176,7 @@ def cleanup_test_artifacts(real_client):
                         "version": "1.0",
                         "project_key": TEST_PROJECT,
                         "blocks": [],
-                        "last_updated": None
+                        "last_updated": None,
                     }
                     index_file.write(json.dumps(empty_index, indent=2))
         except:
@@ -194,6 +190,7 @@ def cleanup_test_artifacts(real_client):
 # ============================================================================
 # Test Class 1: Real Wiki Writes
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.slow
@@ -247,7 +244,7 @@ class TestRealWikiWrites:
             "Outputs",
             "Contains",
             test_block.block_id,  # Block ID appears
-            test_block.version  # Version appears
+            test_block.version,  # Version appears
         ]
 
         for section in required_sections:
@@ -281,6 +278,7 @@ class TestRealWikiWrites:
 # ============================================================================
 # Test Class 2: Real Library Writes
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.slow
@@ -396,6 +394,7 @@ class TestRealLibraryWrites:
 # ============================================================================
 # Test Class 3: End-to-End Real Write
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.slow

@@ -273,7 +273,9 @@ class TestCatalogWriter:
 
         # Verify ordering: title < summary < description
         assert title_pos < summary_pos, "Title should come before summary"
-        assert summary_pos < description_header_pos, "Summary should come before description section"
+        assert (
+            summary_pos < description_header_pos
+        ), "Summary should come before description section"
 
 
 class TestJSONIndex:

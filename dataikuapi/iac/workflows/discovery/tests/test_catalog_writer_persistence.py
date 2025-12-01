@@ -30,6 +30,7 @@ from dataikuapi.iac.workflows.discovery.exceptions import CatalogWriteError
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_client():
     """Create mock DSSClient."""
@@ -53,6 +54,7 @@ def mock_project(mock_client):
     schemas_folder.add_file = Mock(return_value=Mock())
 
     discovery_folder = Mock()
+
     def discovery_get_child(name):
         if name == "schemas":
             return folder_state.get("schemas")
@@ -61,32 +63,40 @@ def mock_project(mock_client):
         return None
 
     discovery_folder.get_child = Mock(side_effect=discovery_get_child)
+
     def discovery_add_folder(name):
         if name == "schemas":
             folder_state["schemas"] = schemas_folder
         return schemas_folder
+
     discovery_folder.add_folder = Mock(side_effect=discovery_add_folder)
 
     def discovery_add_file(name):
         file_mock = Mock()
         file_mock.write = Mock()
-        file_mock.read = Mock(return_value='{"blocks": [], "last_updated": "2024-01-01T00:00:00Z"}')
+        file_mock.read = Mock(
+            return_value='{"blocks": [], "last_updated": "2024-01-01T00:00:00Z"}'
+        )
         folder_state[name] = file_mock
         return file_mock
+
     discovery_folder.add_file = Mock(side_effect=discovery_add_file)
 
     # Root folder
     root_folder = Mock()
+
     def root_get_child(name):
         if name == "discovery":
             return folder_state.get("discovery")
         return None
+
     root_folder.get_child = Mock(side_effect=root_get_child)
 
     def root_add_folder(name):
         if name == "discovery":
             folder_state["discovery"] = discovery_folder
         return discovery_folder
+
     root_folder.add_folder = Mock(side_effect=root_add_folder)
     root_folder.add_file = Mock(return_value=Mock())
 
@@ -129,7 +139,7 @@ def sample_block():
                 type="dataset",
                 required=True,
                 description="Test input",
-                schema_ref="schemas/TEST_BLOCK_input1.schema.json"
+                schema_ref="schemas/TEST_BLOCK_input1.schema.json",
             )
         ],
         outputs=[
@@ -138,16 +148,12 @@ def sample_block():
                 type="dataset",
                 required=True,
                 description="Test output",
-                schema_ref="schemas/TEST_BLOCK_output1.schema.json"
+                schema_ref="schemas/TEST_BLOCK_output1.schema.json",
             )
         ],
-        contains=BlockContents(
-            datasets=["dataset1"],
-            recipes=["recipe1"],
-            models=[]
-        ),
+        contains=BlockContents(datasets=["dataset1"], recipes=["recipe1"], models=[]),
         tags=["test"],
-        dependencies={}
+        dependencies={},
     )
 
     # Dynamically add schema attribute (as schema_extractor might do)
@@ -181,10 +187,13 @@ def sample_blocks():
 # Test Class 1: TestWriteToProjectRegistry
 # ============================================================================
 
+
 class TestWriteToProjectRegistry:
     """Test main write_to_project_registry() method."""
 
-    def test_write_single_block_calls_all_methods(self, mock_client, mock_project, sample_block):
+    def test_write_single_block_calls_all_methods(
+        self, mock_client, mock_project, sample_block
+    ):
         """Verify write orchestration calls all sub-methods."""
         writer = CatalogWriter(client=mock_client)
 
@@ -192,16 +201,16 @@ class TestWriteToProjectRegistry:
         result = writer.write_to_project_registry("TEST_PROJECT", [sample_block])
 
         # Verify results structure
-        assert 'project_key' in result
-        assert 'blocks_written' in result
-        assert 'wiki_articles' in result
-        assert 'schemas_written' in result
-        assert 'index_updated' in result
+        assert "project_key" in result
+        assert "blocks_written" in result
+        assert "wiki_articles" in result
+        assert "schemas_written" in result
+        assert "index_updated" in result
 
         # Verify counts
-        assert result['blocks_written'] == 1
-        assert len(result['wiki_articles']) == 1
-        assert result['index_updated'] == True
+        assert result["blocks_written"] == 1
+        assert len(result["wiki_articles"]) == 1
+        assert result["index_updated"] == True
 
     def test_write_multiple_blocks(self, mock_client, mock_project, sample_blocks):
         """Verify batch write of multiple blocks."""
@@ -211,10 +220,12 @@ class TestWriteToProjectRegistry:
         result = writer.write_to_project_registry("TEST_PROJECT", sample_blocks)
 
         # Verify all blocks written
-        assert result['blocks_written'] == 3
-        assert len(result['wiki_articles']) == 3
+        assert result["blocks_written"] == 3
+        assert len(result["wiki_articles"]) == 3
 
-    def test_write_returns_correct_statistics(self, mock_client, mock_project, sample_block):
+    def test_write_returns_correct_statistics(
+        self, mock_client, mock_project, sample_block
+    ):
         """Verify return value contains expected fields."""
         writer = CatalogWriter(client=mock_client)
 
@@ -223,21 +234,21 @@ class TestWriteToProjectRegistry:
 
         # Verify all required fields present
         required_fields = [
-            'project_key',
-            'blocks_written',
-            'wiki_articles',
-            'schemas_written',
-            'index_updated'
+            "project_key",
+            "blocks_written",
+            "wiki_articles",
+            "schemas_written",
+            "index_updated",
         ]
         for field in required_fields:
             assert field in result, f"Missing field: {field}"
 
         # Verify types
-        assert isinstance(result['project_key'], str)
-        assert isinstance(result['blocks_written'], int)
-        assert isinstance(result['wiki_articles'], list)
-        assert isinstance(result['schemas_written'], int)
-        assert isinstance(result['index_updated'], bool)
+        assert isinstance(result["project_key"], str)
+        assert isinstance(result["blocks_written"], int)
+        assert isinstance(result["wiki_articles"], list)
+        assert isinstance(result["schemas_written"], int)
+        assert isinstance(result["index_updated"], bool)
 
     def test_write_without_client_raises_error(self):
         """Verify error when CatalogWriter has no client."""
@@ -254,14 +265,15 @@ class TestWriteToProjectRegistry:
         result = writer.write_to_project_registry("TEST_PROJECT", [])
 
         # Should create structure but write 0 blocks
-        assert result['blocks_written'] == 0
-        assert len(result['wiki_articles']) == 0
-        assert result['index_updated'] == True  # Index still updated
+        assert result["blocks_written"] == 0
+        assert len(result["wiki_articles"]) == 0
+        assert result["index_updated"] == True  # Index still updated
 
 
 # ============================================================================
 # Test Class 2: TestEnsureProjectRegistryExists
 # ============================================================================
+
 
 class TestEnsureProjectRegistryExists:
     """Test registry structure initialization."""
@@ -280,7 +292,9 @@ class TestEnsureProjectRegistryExists:
         # Verify folder creation attempted
         library.root.add_folder.assert_called()
         # Check discovery folder was requested
-        add_folder_calls = [call[0][0] for call in library.root.add_folder.call_args_list]
+        add_folder_calls = [
+            call[0][0] for call in library.root.add_folder.call_args_list
+        ]
         assert "discovery" in add_folder_calls
 
     def test_creates_schemas_subfolder(self, mock_client, mock_project):
@@ -313,10 +327,12 @@ class TestEnsureProjectRegistryExists:
         discovery_folder = Mock()
         schemas_folder = Mock()
 
-        discovery_folder.get_child = Mock(side_effect=[
-            None,  # schemas folder doesn't exist
-            None   # index.json doesn't exist
-        ])
+        discovery_folder.get_child = Mock(
+            side_effect=[
+                None,  # schemas folder doesn't exist
+                None,  # index.json doesn't exist
+            ]
+        )
         discovery_folder.add_folder = Mock(return_value=schemas_folder)
 
         mock_index_file = Mock()
@@ -335,10 +351,10 @@ class TestEnsureProjectRegistryExists:
         written_content = mock_index_file.write.call_args[0][0]
         index_data = json.loads(written_content)
 
-        assert index_data['version'] == "1.0"
-        assert index_data['project_key'] == "TEST_PROJECT"
-        assert index_data['blocks'] == []
-        assert index_data['last_updated'] is None
+        assert index_data["version"] == "1.0"
+        assert index_data["project_key"] == "TEST_PROJECT"
+        assert index_data["blocks"] == []
+        assert index_data["last_updated"] is None
 
     def test_handles_existing_structure(self, mock_client, mock_project):
         """Verify graceful handling when structure already exists."""
@@ -374,6 +390,7 @@ class TestEnsureProjectRegistryExists:
 # Test Class 3: TestWriteWikiArticle
 # ============================================================================
 
+
 class TestWriteWikiArticle:
     """Test Wiki article writing."""
 
@@ -405,8 +422,8 @@ class TestWriteWikiArticle:
 
         # Check arguments
         assert call_args[0][0] == sample_block.block_id  # article name
-        assert call_args[1]['parent_id'] == "parent_id"  # parent ID
-        assert sample_block.block_id in call_args[1]['content']  # content
+        assert call_args[1]["parent_id"] == "parent_id"  # parent ID
+        assert sample_block.block_id in call_args[1]["content"]  # content
 
     def test_updates_existing_article(self, mock_client, mock_project, sample_block):
         """Verify existing article updated (merged) correctly."""
@@ -421,7 +438,9 @@ class TestWriteWikiArticle:
 
         # Existing article with data
         existing_article_data = Mock()
-        existing_article_data.get_body = Mock(return_value="Existing content\n\n## Changelog\n- 0.9.0: Old version")
+        existing_article_data.get_body = Mock(
+            return_value="Existing content\n\n## Changelog\n- 0.9.0: Old version"
+        )
         existing_article_data.set_body = Mock()
         existing_article_data.save = Mock()
 
@@ -476,10 +495,13 @@ class TestWriteWikiArticle:
 # Test Class 4: TestWriteSchemas
 # ============================================================================
 
+
 class TestWriteSchemas:
     """Test schema file writing."""
 
-    def test_writes_input_and_output_schemas(self, mock_client, mock_project, sample_block):
+    def test_writes_input_and_output_schemas(
+        self, mock_client, mock_project, sample_block
+    ):
         """Verify input and output schemas written to library."""
         writer = CatalogWriter(client=mock_client)
 
@@ -562,7 +584,7 @@ class TestWriteSchemas:
             source_project="TEST",
             inputs=[BlockPort(name="in", type="dataset", required=True)],
             outputs=[],
-            contains=BlockContents(datasets=[], recipes=[], models=[])
+            contains=BlockContents(datasets=[], recipes=[], models=[]),
         )
         # No schema attribute added - ports have no schemas
 
@@ -586,6 +608,7 @@ class TestWriteSchemas:
 # Test Class 5: TestUpdateDiscoveryIndex
 # ============================================================================
 
+
 class TestUpdateDiscoveryIndex:
     """Test index.json update logic."""
 
@@ -596,7 +619,9 @@ class TestUpdateDiscoveryIndex:
         # Mock: index doesn't exist
         library = mock_project.get_library()
         discovery_folder = Mock()
-        discovery_folder.get_child = Mock(side_effect=[None, None])  # index doesn't exist both times
+        discovery_folder.get_child = Mock(
+            side_effect=[None, None]
+        )  # index doesn't exist both times
 
         mock_index_file = Mock()
         discovery_folder.add_file = Mock(return_value=mock_index_file)
@@ -618,9 +643,7 @@ class TestUpdateDiscoveryIndex:
         existing_index = {
             "version": "1.0",
             "project_key": "TEST_PROJECT",
-            "blocks": [
-                {"block_id": "EXISTING_BLOCK", "version": "1.0.0"}
-            ]
+            "blocks": [{"block_id": "EXISTING_BLOCK", "version": "1.0.0"}],
         }
 
         library = mock_project.get_library()
@@ -651,11 +674,11 @@ class TestUpdateDiscoveryIndex:
         library = mock_project.get_library()
         discovery_folder = Mock()
         mock_index_file = Mock()
-        mock_index_file.read = Mock(return_value=json.dumps({
-            "version": "1.0",
-            "project_key": "TEST_PROJECT",
-            "blocks": []
-        }))
+        mock_index_file.read = Mock(
+            return_value=json.dumps(
+                {"version": "1.0", "project_key": "TEST_PROJECT", "blocks": []}
+            )
+        )
         discovery_folder.get_child = Mock(return_value=mock_index_file)
         library.root.get_child = Mock(return_value=discovery_folder)
 

@@ -205,10 +205,7 @@ class BlockIdentifier:
         # Extract flow graph (Phase 4)
         nodes = self._extract_graph_nodes(boundary, contents)
         edges = self._extract_graph_edges(project, contents.recipes)
-        flow_graph = {
-            "nodes": nodes,
-            "edges": edges
-        }
+        flow_graph = {"nodes": nodes, "edges": edges}
 
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
@@ -636,12 +633,7 @@ class BlockIdentifier:
         inputs = [i["ref"] for i in raw.get("inputs", {}).values()]
         outputs = [o["ref"] for o in raw.get("outputs", {}).values()]
 
-        return {
-            "type": r_type,
-            "engine": engine,
-            "inputs": inputs,
-            "outputs": outputs
-        }
+        return {"type": r_type, "engine": engine, "inputs": inputs, "outputs": outputs}
 
     def _extract_code_snippet(self, raw_settings: Dict) -> Optional[str]:
         """
@@ -659,8 +651,8 @@ class BlockIdentifier:
             return None
 
         # Step 2: Split and slice
-        lines = payload.strip().split('\n')
-        snippet = '\n'.join(lines[:10])
+        lines = payload.strip().split("\n")
+        snippet = "\n".join(lines[:10])
 
         # Step 3: Add indicator if truncated
         if len(lines) > 10:
@@ -717,7 +709,7 @@ class BlockIdentifier:
                     description=description,
                     tags=tags,
                     code_snippet=snippet,
-                    config_summary={}  # Empty for now, can be enhanced later
+                    config_summary={},  # Empty for now, can be enhanced later
                 )
                 details.append(detail)
 
@@ -757,11 +749,13 @@ class BlockIdentifier:
                     for item in python_folder.list():
                         # Only include files, not folders (children is None for files)
                         if item.children is None:
-                            refs.append(LibraryReference(
-                                name=item.name,
-                                type="python",
-                                description="Project Library (Python)"
-                            ))
+                            refs.append(
+                                LibraryReference(
+                                    name=item.name,
+                                    type="python",
+                                    description="Project Library (Python)",
+                                )
+                            )
             except Exception:
                 pass  # python/ folder might not exist
 
@@ -772,11 +766,13 @@ class BlockIdentifier:
                     for item in r_folder.list():
                         # Only include files, not folders
                         if item.children is None:
-                            refs.append(LibraryReference(
-                                name=item.name,
-                                type="R",
-                                description="Project Library (R)"
-                            ))
+                            refs.append(
+                                LibraryReference(
+                                    name=item.name,
+                                    type="R",
+                                    description="Project Library (R)",
+                                )
+                            )
             except Exception:
                 pass  # R/ folder might not exist
 
@@ -805,22 +801,28 @@ class BlockIdentifier:
 
         try:
             # Get notebook list (using listitems for lightweight metadata)
-            notebooks = project.list_jupyter_notebooks(active=False, as_type="listitems")
+            notebooks = project.list_jupyter_notebooks(
+                active=False, as_type="listitems"
+            )
 
             for nb in notebooks:
-                refs.append(NotebookReference(
-                    name=nb.name,
-                    type="jupyter",  # All Jupyter notebooks map to "jupyter"
-                    description="Jupyter Notebook",
-                    tags=[]  # Tags not available in listitem metadata
-                ))
+                refs.append(
+                    NotebookReference(
+                        name=nb.name,
+                        type="jupyter",  # All Jupyter notebooks map to "jupyter"
+                        description="Jupyter Notebook",
+                        tags=[],  # Tags not available in listitem metadata
+                    )
+                )
 
         except Exception as e:
             print(f"Warning: Failed to extract notebook references: {e}")
 
         return refs
 
-    def _extract_graph_nodes(self, boundary: Dict, contents: BlockContents) -> List[Dict[str, str]]:
+    def _extract_graph_nodes(
+        self, boundary: Dict, contents: BlockContents
+    ) -> List[Dict[str, str]]:
         """
         Extract all nodes (datasets and recipes) for flow graph visualization.
 
@@ -857,7 +859,9 @@ class BlockIdentifier:
 
         return nodes
 
-    def _extract_graph_edges(self, project: Any, recipe_names: List[str]) -> List[Dict[str, str]]:
+    def _extract_graph_edges(
+        self, project: Any, recipe_names: List[str]
+    ) -> List[Dict[str, str]]:
         """
         Extract edges representing data flow through recipes.
 

@@ -424,7 +424,9 @@ class TestRealSchemaExtractor:
 
                     # Show first few columns
                     for col in schema["columns"][:5]:
-                        print(f"    - {col.get('name', 'N/A')} ({col.get('type', 'N/A')})")
+                        print(
+                            f"    - {col.get('name', 'N/A')} ({col.get('type', 'N/A')})"
+                        )
 
                     break
             except Exception as e:
@@ -580,7 +582,9 @@ class TestRealDiscoveryAgent:
         """Test enrich phase on real blocks."""
         from dataikuapi.iac.workflows.discovery.agent import DiscoveryAgent
         from dataikuapi.iac.workflows.discovery.models import (
-            BlockMetadata, BlockPort, BlockContents
+            BlockMetadata,
+            BlockPort,
+            BlockContents,
         )
 
         agent = DiscoveryAgent(real_client)
@@ -654,13 +658,15 @@ class TestRealPerformance:
         print(f"\n  Discovery time: {elapsed_time:.2f}s")
         print(f"  Blocks found: {results['blocks_found']}")
 
-        if results['blocks_found'] > 0:
-            time_per_block = elapsed_time / results['blocks_found']
+        if results["blocks_found"] > 0:
+            time_per_block = elapsed_time / results["blocks_found"]
             print(f"  Time per block: {time_per_block:.3f}s")
 
         # Performance assertion (adjust based on project size)
         # For 7 zones with 55 datasets, reasonable time is < 30s
-        assert elapsed_time < 30.0, f"Discovery took {elapsed_time:.2f}s, expected < 30s"
+        assert (
+            elapsed_time < 30.0
+        ), f"Discovery took {elapsed_time:.2f}s, expected < 30s"
 
     def test_crawler_performance_real(self, real_client, project_info):
         """Test crawler performance on real project."""
@@ -800,10 +806,14 @@ def test_environment_configuration():
     print(f"   export DATAIKU_API_KEY=$(cat {DEFAULT_API_KEY_PATH})")
 
     print("\n2. Run with pytest:")
-    print("   pytest dataikuapi/iac/workflows/discovery/tests/test_real_integration.py -v -m real_dataiku")
+    print(
+        "   pytest dataikuapi/iac/workflows/discovery/tests/test_real_integration.py -v -m real_dataiku"
+    )
 
     print("\n3. Run specific test:")
-    print("   pytest dataikuapi/iac/workflows/discovery/tests/test_real_integration.py::TestRealDiscoveryAgent::test_full_discovery_workflow_dry_run -v")
+    print(
+        "   pytest dataikuapi/iac/workflows/discovery/tests/test_real_integration.py::TestRealDiscoveryAgent::test_full_discovery_workflow_dry_run -v"
+    )
 
     print("\n" + "-" * 70)
     print("SAFETY NOTES:")
