@@ -164,7 +164,7 @@ class CatalogWriter:
   - [Recipes ({rc_count})](#contains)
 - [Dependencies](#dependencies)
 - [Usage](#usage)
-- [Flow Diagram](#flow-diagram) _(Coming soon)_
+- [Flow Diagram](#flow-diagram)
 - [Technical Details](#technical-details) _(Coming soon)_
 """
 
@@ -480,6 +480,14 @@ class CatalogWriter:
                 desc = out.description or ""
                 sections.append(f"| {out.name} | {out.type} | {desc} |")
             sections.append("")
+
+        # 5.5 Flow Diagram (if EnhancedBlockMetadata with flow_graph)
+        if isinstance(metadata, EnhancedBlockMetadata):
+            if metadata.flow_graph:
+                sections.append("## Flow Diagram")
+                sections.append("")
+                sections.append(self._generate_flow_diagram(metadata.flow_graph))
+                sections.append("")
 
         # 6. Contains Section
         sections.append("## Contains")
