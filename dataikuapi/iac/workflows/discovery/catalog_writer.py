@@ -124,6 +124,46 @@ class CatalogWriter:
         return f"""> **Quick Summary**: {description}
 > **Complexity**: {complexity} | **Recipes**: {recipes} | **Datasets**: {datasets}"""
 
+    def _generate_navigation_menu(self, metadata: EnhancedBlockMetadata) -> str:
+        """
+        Generate navigation menu with anchor links for wiki article sections.
+
+        Creates a markdown navigation menu with:
+        - Links to major article sections
+        - Dynamic counts for datasets and recipes
+        - Future section placeholders
+
+        Args:
+            metadata: EnhancedBlockMetadata with dataset/recipe details
+
+        Returns:
+            Formatted markdown navigation menu with section links and counts
+
+        Example:
+            >>> writer = CatalogWriter()
+            >>> nav = writer._generate_navigation_menu(metadata)
+            >>> print(nav)
+            ## 🗺️ Quick Navigation
+            ...
+        """
+        ds_count = len(metadata.dataset_details)
+        rc_count = len(metadata.recipe_details)
+
+        return f"""## 🗺️ Quick Navigation
+
+- [Overview](#description)
+- [Inputs & Outputs](#inputs)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+- [Internal Components](#contains)
+  - [Datasets ({ds_count})](#contains)
+  - [Recipes ({rc_count})](#contains)
+- [Dependencies](#dependencies)
+- [Usage](#usage)
+- [Flow Diagram](#flow-diagram) _(Coming soon)_
+- [Technical Details](#technical-details) _(Coming soon)_
+"""
+
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
         Generate wiki article from block metadata.
@@ -164,6 +204,10 @@ class CatalogWriter:
         # 2.5. Quick Summary (if EnhancedBlockMetadata)
         if isinstance(metadata, EnhancedBlockMetadata):
             sections.append(self._generate_quick_summary(metadata))
+            sections.append("")
+
+            # 2.6. Navigation Menu (if EnhancedBlockMetadata)
+            sections.append(self._generate_navigation_menu(metadata))
             sections.append("")
 
         # 3. Description
