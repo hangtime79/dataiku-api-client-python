@@ -308,3 +308,80 @@ class TestExtractBlockMetadataIntegration:
 
         assert "recipe_details" in data
         assert isinstance(data["recipe_details"], list)
+
+    def test_extract_block_metadata_includes_library_and_notebook_refs(
+        self, mock_crawler, sample_boundary
+    ):
+        """Test that library and notebook refs are included in metadata."""
+        from unittest.mock import Mock
+
+        identifier = BlockIdentifier(mock_crawler)
+
+        # Setup mocks
+        mock_client = Mock()
+        mock_project = Mock()
+        mock_crawler.client = mock_client
+
+        # Setup library mock
+        library = Mock()
+        root = Mock()
+        python_folder = Mock()
+        python_file = Mock()
+        python_file.name = "utils.py"
+        python_file.children = None
+        python_folder.children = {python_file}
+        python_folder.list.return_value = [python_file]
+        root.get_child.side_effect = lambda name: python_folder if name == "python" else None
+        library.root = root
+        mock_project.get_library.return_value = library
+
+        # Setup notebook mock
+        nb = Mock()
+        nb.name = "notebook.ipynb"
+        nb.language = "python"
+        mock_project.list_jupyter_notebooks.return_value = [nb]
+
+        # Setup dataset mock (required by extract_block_metadata)
+        mock_dataset = Mock()
+        mock_ds_settings = Mock()
+        mock_ds_settings.get_raw.return_value = {
+            "type": "Snowflake",
+            "params": {"connection": "DW_CONN"},
+            "formatType": "table"
+        }
+        mock_dataset.get_settings.return_value = mock_ds_settings
+        mock_dataset.get_schema.return_value = {"columns": []}
+        mock_project.get_dataset.return_value = mock_dataset
+        mock_project.get_recipe.return_value = Mock()
+
+        mock_client.get_project.return_value = mock_project
+
+        # Setup zone items
+        zone_items = {
+            "datasets": [],
+            "recipes": []
+        }
+        sample_boundary["internals"] = []
+        mock_crawler.get_zone_items.return_value = zone_items
+
+        # Extract metadata
+        metadata = identifier.extract_block_metadata(
+            "TEST_PROJECT", "test_zone", sample_boundary
+        )
+
+        # Verify library refs
+        assert isinstance(metadata.library_refs, list)
+        assert len(metadata.library_refs) == 1
+        assert metadata.library_refs[0].name == "utils.py"
+        assert metadata.library_refs[0].type == "python"
+
+        # Verify notebook refs
+        assert isinstance(metadata.notebook_refs, list)
+        assert len(metadata.notebook_refs) == 1
+        assert metadata.notebook_refs[0].name == "notebook.ipynb"
+        assert metadata.notebook_refs[0].type == "jupyter"
+
+        # Verify serialization works
+        metadata_dict = metadata.to_dict()
+        assert "library_refs" in metadata_dict
+        assert "notebook_refs" in metadata_dict

@@ -196,6 +196,12 @@ class BlockIdentifier:
         # Extract recipe details
         recipe_details = self._extract_recipe_details(project, contents.recipes)
 
+        # Extract library references
+        library_refs = self._extract_library_refs(project)
+
+        # Extract notebook references
+        notebook_refs = self._extract_notebook_refs(project)
+
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
             block_id=block_id,
@@ -213,6 +219,8 @@ class BlockIdentifier:
             contains=contents,
             dataset_details=dataset_details,
             recipe_details=recipe_details,
+            library_refs=library_refs,
+            notebook_refs=notebook_refs,
         )
 
         return metadata
