@@ -16,3 +16,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .codemachine/
+
+# Logs and temporary scripts
+tests.log
+orchestrate_phases.py
