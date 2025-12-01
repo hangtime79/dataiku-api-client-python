@@ -202,6 +202,14 @@ class BlockIdentifier:
         # Extract notebook references
         notebook_refs = self._extract_notebook_refs(project)
 
+        # Extract flow graph (Phase 4)
+        nodes = self._extract_graph_nodes(boundary, contents)
+        edges = self._extract_graph_edges(project, contents.recipes)
+        flow_graph = {
+            "nodes": nodes,
+            "edges": edges
+        }
+
         # Create EnhancedBlockMetadata
         metadata = EnhancedBlockMetadata(
             block_id=block_id,
@@ -221,6 +229,7 @@ class BlockIdentifier:
             recipe_details=recipe_details,
             library_refs=library_refs,
             notebook_refs=notebook_refs,
+            flow_graph=flow_graph,
         )
 
         return metadata
@@ -810,3 +819,81 @@ class BlockIdentifier:
             print(f"Warning: Failed to extract notebook references: {e}")
 
         return refs
+
+    def _extract_graph_nodes(self, boundary: Dict, contents: BlockContents) -> List[Dict[str, str]]:
+        """
+        Extract all nodes (datasets and recipes) for flow graph visualization.
+
+        Nodes include:
+        - Input datasets (from boundary)
+        - Output datasets (from boundary)
+        - Internal datasets (from contents)
+        - Recipes (from contents)
+
+        Args:
+            boundary: Zone boundary with inputs/outputs/internals
+            contents: Block contents with datasets/recipes
+
+        Returns:
+            List of node dictionaries with id, type, and role
+        """
+        nodes = []
+
+        # Step 1: Add Input Datasets
+        for ds_name in boundary.get("inputs", []):
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "input"})
+
+        # Step 2: Add Output Datasets
+        for ds_name in boundary.get("outputs", []):
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "output"})
+
+        # Step 3: Add Internal Datasets
+        for ds_name in contents.datasets:
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "internal"})
+
+        # Step 4: Add Recipes
+        for recipe_name in contents.recipes:
+            nodes.append({"id": recipe_name, "type": "RECIPE", "role": "internal"})
+
+        return nodes
+
+    def _extract_graph_edges(self, project: Any, recipe_names: List[str]) -> List[Dict[str, str]]:
+        """
+        Extract edges representing data flow through recipes.
+
+        Creates two types of edges:
+        1. DATASET -> RECIPE (recipe inputs)
+        2. RECIPE -> DATASET (recipe outputs)
+
+        Args:
+            project: Dataiku project object
+            recipe_names: List of recipe names in the block
+
+        Returns:
+            List of edge dictionaries with source and target
+        """
+        edges = []
+
+        # Step 1: Iterate through recipes
+        for recipe_name in recipe_names:
+            try:
+                # Step 2: Get recipe handle
+                recipe = project.get_recipe(recipe_name)
+
+                # Step 3: Extract config (reuse P2-F001 helper)
+                config = self._get_recipe_config(recipe)
+
+                # Step 4: Create Input -> Recipe edges
+                for input_name in config["inputs"]:
+                    edges.append({"source": input_name, "target": recipe_name})
+
+                # Step 5: Create Recipe -> Output edges
+                for output_name in config["outputs"]:
+                    edges.append({"source": recipe_name, "target": output_name})
+
+            except Exception as e:
+                # Step 6: Log error but continue (graceful degradation)
+                print(f"Warning: Failed to extract edges for recipe {recipe_name}: {e}")
+                continue
+
+        return edges
