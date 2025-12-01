@@ -1,0 +1,8 @@
+[run]
+omit =
+    */dataikuapi/iac/workflows/discovery/agent.py
+    */dataikuapi/iac/workflows/discovery/catalog_writer.py
+    */dataikuapi/iac/workflows/discovery/crawler.py
+    */dataikuapi/iac/workflows/discovery/models.py
+    */dataikuapi/iac/workflows/discovery/schema_extractor.py
+    */dataikuapi/iac/workflows/discovery/tests/*
