@@ -331,3 +331,97 @@ class TestGenerateNavigationMenu:
 
         assert "Datasets (15)" in nav
         assert "Recipes (8)" in nav
+
+
+class TestWikiArticleFlowDiagram:
+    """Integration tests for flow diagram in wiki articles."""
+
+    def test_wiki_includes_flow_diagram(self):
+        """Test wiki article includes flow diagram when graph provided."""
+
+        writer = CatalogWriter()
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="TEST_PROJECT",
+            description="Test",
+            flow_graph={"nodes": [{"id": "DS", "type": "DATASET"}], "edges": []},
+        )
+
+        article = writer.generate_wiki_article(metadata)
+
+        assert "## Flow Diagram" in article
+        assert "```mermaid" in article
+        assert "graph LR" in article
+
+    def test_wiki_no_flow_diagram_when_empty(self):
+        """Test wiki article gracefully handles empty flow graph."""
+        writer = CatalogWriter()
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="TEST_PROJECT",
+            description="Test",
+            flow_graph=None,
+        )
+
+        article = writer.generate_wiki_article(metadata)
+
+        # Should not have diagram section
+        assert "## Flow Diagram" not in article
+        assert "```mermaid" not in article
+
+    def test_wiki_flow_diagram_positioned_correctly(self):
+        """Test flow diagram appears after Outputs and before Contains."""
+        from dataikuapi.iac.workflows.discovery.models import BlockPort
+
+        writer = CatalogWriter()
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="TEST_PROJECT",
+            description="Test",
+            outputs=[BlockPort(name="OUT", type="dataset")],
+            flow_graph={"nodes": [{"id": "DS", "type": "DATASET"}], "edges": []},
+        )
+
+        article = writer.generate_wiki_article(metadata)
+
+        # Find positions
+        outputs_pos = article.find("## Outputs")
+        diagram_pos = article.find("## Flow Diagram")
+        contains_pos = article.find("## Contains")
+
+        assert (
+            outputs_pos < diagram_pos < contains_pos
+        ), "Flow diagram should be between Outputs and Contains"
+
+    def test_navigation_menu_no_coming_soon(self):
+        """Test navigation menu updated to remove 'Coming soon' for Flow Diagram."""
+        writer = CatalogWriter()
+        metadata = EnhancedBlockMetadata(
+            block_id="TEST_BLOCK",
+            version="1.0.0",
+            type="zone",
+            source_project="TEST_PROJECT",
+            name="TEST",
+            description="Test",
+        )
+
+        nav = writer._generate_navigation_menu(metadata)
+
+        # Flow Diagram should not have "Coming soon"
+        assert (
+            "- [Flow Diagram](#flow-diagram)\n" in nav
+            or "- [Flow Diagram](#flow-diagram) " in nav
+        )
+        assert "- [Flow Diagram](#flow-diagram) _(Coming soon)_" not in nav
+
+        # Technical Details should still have "Coming soon" (future phase)
+        assert "- [Technical Details](#technical-details) _(Coming soon)_" in nav

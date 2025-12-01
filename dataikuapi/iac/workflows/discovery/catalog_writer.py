@@ -164,7 +164,7 @@ class CatalogWriter:
   - [Recipes ({rc_count})](#contains)
 - [Dependencies](#dependencies)
 - [Usage](#usage)
-- [Flow Diagram](#flow-diagram) _(Coming soon)_
+- [Flow Diagram](#flow-diagram)
 - [Technical Details](#technical-details) _(Coming soon)_
 """
 
@@ -333,6 +333,74 @@ class CatalogWriter:
         md += self._generate_notebooks_section(metadata.notebook_refs)
         return md
 
+    def _generate_flow_diagram(self, flow_graph: Optional[Dict[str, Any]]) -> str:
+        """
+        Generate Mermaid flow diagram from flow graph structure.
+
+        Creates a left-to-right flow diagram showing:
+        - Datasets as boxes [Dataset]
+        - Recipes as rounded boxes (Recipe)
+        - Data flow as arrows -->
+
+        Args:
+            flow_graph: Dictionary with 'nodes' and 'edges' lists, or None
+
+        Returns:
+            Mermaid markdown code block, or empty string if no graph
+
+        Example:
+            >>> flow_graph = {
+            ...     "nodes": [
+            ...         {"id": "INPUT", "type": "DATASET"},
+            ...         {"id": "transform", "type": "RECIPE"}
+            ...     ],
+            ...     "edges": [{"source": "INPUT", "target": "transform"}]
+            ... }
+            >>> diagram = writer._generate_flow_diagram(flow_graph)
+            >>> print(diagram)
+            ```mermaid
+            graph LR
+                INPUT[INPUT]
+                transform(transform)
+                INPUT --> transform
+            ```
+        """
+        # Handle empty/None cases
+        if not flow_graph:
+            return ""
+
+        nodes = flow_graph.get("nodes", [])
+        edges = flow_graph.get("edges", [])
+
+        # Empty graph - no diagram
+        if not nodes:
+            return ""
+
+        # Build Mermaid syntax
+        mermaid_lines = ["```mermaid", "graph LR"]
+
+        # Add nodes with appropriate shapes
+        for node in nodes:
+            node_id = node["id"].replace(" ", "_")  # Sanitize for Mermaid
+            label = node["id"]  # Keep original label for display
+
+            if node["type"] == "DATASET":
+                # Square brackets for datasets
+                mermaid_lines.append(f"    {node_id}[{label}]")
+            else:  # RECIPE
+                # Rounded parentheses for recipes
+                mermaid_lines.append(f"    {node_id}({label})")
+
+        # Add edges
+        for edge in edges:
+            source = edge["source"].replace(" ", "_")
+            target = edge["target"].replace(" ", "_")
+            mermaid_lines.append(f"    {source} --> {target}")
+
+        mermaid_lines.append("```")
+
+        return "\n".join(mermaid_lines) + "\n"
+
     def generate_wiki_article(self, metadata: BlockMetadata) -> str:
         """
         Generate wiki article from block metadata.
@@ -412,6 +480,14 @@ class CatalogWriter:
                 desc = out.description or ""
                 sections.append(f"| {out.name} | {out.type} | {desc} |")
             sections.append("")
+
+        # 5.5 Flow Diagram (if EnhancedBlockMetadata with flow_graph)
+        if isinstance(metadata, EnhancedBlockMetadata):
+            if metadata.flow_graph:
+                sections.append("## Flow Diagram")
+                sections.append("")
+                sections.append(self._generate_flow_diagram(metadata.flow_graph))
+                sections.append("")
 
         # 6. Contains Section
         sections.append("## Contains")
