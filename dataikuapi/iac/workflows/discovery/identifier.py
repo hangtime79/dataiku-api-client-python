@@ -847,3 +847,44 @@ class BlockIdentifier:
             nodes.append({"id": recipe_name, "type": "RECIPE", "role": "internal"})
 
         return nodes
+
+    def _extract_graph_edges(self, project: Any, recipe_names: List[str]) -> List[Dict[str, str]]:
+        """
+        Extract edges representing data flow through recipes.
+
+        Creates two types of edges:
+        1. DATASET -> RECIPE (recipe inputs)
+        2. RECIPE -> DATASET (recipe outputs)
+
+        Args:
+            project: Dataiku project object
+            recipe_names: List of recipe names in the block
+
+        Returns:
+            List of edge dictionaries with source and target
+        """
+        edges = []
+
+        # Step 1: Iterate through recipes
+        for recipe_name in recipe_names:
+            try:
+                # Step 2: Get recipe handle
+                recipe = project.get_recipe(recipe_name)
+
+                # Step 3: Extract config (reuse P2-F001 helper)
+                config = self._get_recipe_config(recipe)
+
+                # Step 4: Create Input -> Recipe edges
+                for input_name in config["inputs"]:
+                    edges.append({"source": input_name, "target": recipe_name})
+
+                # Step 5: Create Recipe -> Output edges
+                for output_name in config["outputs"]:
+                    edges.append({"source": recipe_name, "target": output_name})
+
+            except Exception as e:
+                # Step 6: Log error but continue (graceful degradation)
+                print(f"Warning: Failed to extract edges for recipe {recipe_name}: {e}")
+                continue
+
+        return edges

@@ -100,3 +100,119 @@ class TestExtractGraphNodes:
         node_ids = [n["id"] for n in nodes]
         assert "ds1" in node_ids
         assert "r1" in node_ids
+
+
+class TestExtractGraphEdges:
+    """Tests for _extract_graph_edges method."""
+
+    @pytest.fixture
+    def mock_recipe_with_io(self):
+        """Mock recipe with inputs and outputs."""
+        recipe = MagicMock()
+        settings = MagicMock()
+        settings.get_raw.return_value = {
+            "type": "python",
+            "params": {"engineType": "DSS"},
+            "inputs": {
+                "main": {"ref": "input_ds"}
+            },
+            "outputs": {
+                "main": {"ref": "output_ds"}
+            }
+        }
+        recipe.get_settings.return_value = settings
+        return recipe
+
+    @pytest.fixture
+    def mock_project(self, mock_recipe_with_io):
+        """Mock project that returns recipes."""
+        project = Mock()
+        project.get_recipe.return_value = mock_recipe_with_io
+        return project
+
+    def test_creates_bidirectional_edges(self, identifier, mock_project):
+        """Test creation of input->recipe and recipe->output edges."""
+        edges = identifier._extract_graph_edges(mock_project, ["compute_B"])
+
+        # Should have 2 edges: input->recipe, recipe->output
+        assert len(edges) == 2
+
+        # Verify input edge
+        input_edge = next(e for e in edges if e["target"] == "compute_B")
+        assert input_edge["source"] == "input_ds"
+
+        # Verify output edge
+        output_edge = next(e for e in edges if e["source"] == "compute_B")
+        assert output_edge["target"] == "output_ds"
+
+    def test_handles_multiple_recipes(self, identifier, mock_project):
+        """Test edge extraction from multiple recipes."""
+        edges = identifier._extract_graph_edges(mock_project, ["recipe1", "recipe2"])
+
+        # Should have edges for both recipes (2 edges each = 4 total)
+        assert len(edges) == 4
+
+    def test_handles_recipe_with_multiple_inputs_outputs(self, identifier):
+        """Test recipes with multiple inputs and outputs."""
+        # Mock recipe with 2 inputs, 2 outputs
+        recipe = MagicMock()
+        settings = MagicMock()
+        settings.get_raw.return_value = {
+            "type": "join",
+            "inputs": {
+                "left": {"ref": "ds_left"},
+                "right": {"ref": "ds_right"}
+            },
+            "outputs": {
+                "joined": {"ref": "ds_joined"},
+                "rejected": {"ref": "ds_rejected"}
+            }
+        }
+        recipe.get_settings.return_value = settings
+
+        project = Mock()
+        project.get_recipe.return_value = recipe
+
+        edges = identifier._extract_graph_edges(project, ["join_recipe"])
+
+        # Should have 4 edges: 2 inputs + 2 outputs
+        assert len(edges) == 4
+
+        # Verify inputs
+        input_edges = [e for e in edges if e["target"] == "join_recipe"]
+        assert len(input_edges) == 2
+        assert any(e["source"] == "ds_left" for e in input_edges)
+        assert any(e["source"] == "ds_right" for e in input_edges)
+
+        # Verify outputs
+        output_edges = [e for e in edges if e["source"] == "join_recipe"]
+        assert len(output_edges) == 2
+        assert any(e["target"] == "ds_joined" for e in output_edges)
+        assert any(e["target"] == "ds_rejected" for e in output_edges)
+
+    def test_handles_api_errors_gracefully(self, identifier):
+        """Test graceful handling of recipe API failures."""
+        project = Mock()
+        project.get_recipe.side_effect = Exception("API error")
+
+        edges = identifier._extract_graph_edges(project, ["bad_recipe"])
+
+        # Should return empty list, not raise exception
+        assert edges == []
+
+    def test_continues_after_single_recipe_failure(self, identifier, mock_recipe_with_io):
+        """Test that one failed recipe doesn't stop processing."""
+        project = Mock()
+
+        def get_recipe_side_effect(name):
+            if name == "bad_recipe":
+                raise Exception("Failed")
+            return mock_recipe_with_io
+
+        project.get_recipe.side_effect = get_recipe_side_effect
+
+        edges = identifier._extract_graph_edges(project, ["bad_recipe", "good_recipe"])
+
+        # Should have edges from good_recipe only
+        assert len(edges) == 2
+        assert all("good_recipe" in [e["source"], e["target"]] for e in edges)
