@@ -810,3 +810,40 @@ class BlockIdentifier:
             print(f"Warning: Failed to extract notebook references: {e}")
 
         return refs
+
+    def _extract_graph_nodes(self, boundary: Dict, contents: BlockContents) -> List[Dict[str, str]]:
+        """
+        Extract all nodes (datasets and recipes) for flow graph visualization.
+
+        Nodes include:
+        - Input datasets (from boundary)
+        - Output datasets (from boundary)
+        - Internal datasets (from contents)
+        - Recipes (from contents)
+
+        Args:
+            boundary: Zone boundary with inputs/outputs/internals
+            contents: Block contents with datasets/recipes
+
+        Returns:
+            List of node dictionaries with id, type, and role
+        """
+        nodes = []
+
+        # Step 1: Add Input Datasets
+        for ds_name in boundary.get("inputs", []):
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "input"})
+
+        # Step 2: Add Output Datasets
+        for ds_name in boundary.get("outputs", []):
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "output"})
+
+        # Step 3: Add Internal Datasets
+        for ds_name in contents.datasets:
+            nodes.append({"id": ds_name, "type": "DATASET", "role": "internal"})
+
+        # Step 4: Add Recipes
+        for recipe_name in contents.recipes:
+            nodes.append({"id": recipe_name, "type": "RECIPE", "role": "internal"})
+
+        return nodes
