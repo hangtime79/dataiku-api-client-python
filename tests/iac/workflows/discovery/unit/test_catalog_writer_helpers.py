@@ -1,12 +1,9 @@
 """Unit tests for CatalogWriter helper methods."""
 
-import pytest
 from unittest.mock import Mock
 from dataikuapi.iac.workflows.discovery.catalog_writer import CatalogWriter
 from dataikuapi.iac.workflows.discovery.models import (
     EnhancedBlockMetadata,
-    BlockPort,
-    BlockContents,
     RecipeDetail,
     DatasetDetail,
 )
@@ -284,3 +281,53 @@ class TestGenerateQuickSummary:
         assert "**Complexity**: Simple" in summary  # 1 recipe = simple
         assert "**Recipes**: 1" in summary
         assert "**Datasets**: 1" in summary
+
+
+class TestGenerateNavigationMenu:
+    """Test suite for _generate_navigation_menu helper."""
+
+    def test_generate_navigation_menu_basic(self):
+        """Test navigation menu generation with counts."""
+        writer = CatalogWriter()
+        metadata = Mock(spec=EnhancedBlockMetadata)
+        metadata.dataset_details = [Mock(), Mock()]  # 2 datasets
+        metadata.recipe_details = [Mock()]  # 1 recipe
+
+        nav = writer._generate_navigation_menu(metadata)
+
+        # Verify structure
+        assert "## 🗺️ Quick Navigation" in nav
+        assert "- [Overview](#description)" in nav
+        assert "- [Inputs & Outputs](#inputs)" in nav
+
+        # Verify dynamic counts
+        assert "Datasets (2)" in nav
+        assert "Recipes (1)" in nav
+
+        # Verify future sections
+        assert "[Flow Diagram](#flow-diagram)" in nav
+        assert "_(Coming soon)_" in nav
+
+    def test_generate_navigation_menu_zero_items(self):
+        """Test navigation menu with no datasets or recipes."""
+        writer = CatalogWriter()
+        metadata = Mock(spec=EnhancedBlockMetadata)
+        metadata.dataset_details = []
+        metadata.recipe_details = []
+
+        nav = writer._generate_navigation_menu(metadata)
+
+        assert "Datasets (0)" in nav
+        assert "Recipes (0)" in nav
+
+    def test_generate_navigation_menu_many_items(self):
+        """Test navigation menu with many items."""
+        writer = CatalogWriter()
+        metadata = Mock(spec=EnhancedBlockMetadata)
+        metadata.dataset_details = [Mock() for _ in range(15)]
+        metadata.recipe_details = [Mock() for _ in range(8)]
+
+        nav = writer._generate_navigation_menu(metadata)
+
+        assert "Datasets (15)" in nav
+        assert "Recipes (8)" in nav
