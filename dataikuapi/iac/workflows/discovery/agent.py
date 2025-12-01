@@ -53,7 +53,9 @@ class DiscoveryAgent:
         self.crawler = FlowCrawler(client)
         self.identifier = BlockIdentifier(self.crawler)
         self.schema_extractor = SchemaExtractor(client)
-        self.catalog_writer = CatalogWriter(client=client)  # Pass client for persistence
+        self.catalog_writer = CatalogWriter(
+            client=client
+        )  # Pass client for persistence
 
     def run_discovery(self, project_key: str, dry_run: bool = False) -> Dict[str, Any]:
         """
@@ -133,7 +135,7 @@ class DiscoveryAgent:
         results = {
             "project_key": project_key,
             "blocks_found": len(blocks),
-            "blocks_cataloged": write_results['blocks_written'] if write_results else 0,
+            "blocks_cataloged": write_results["blocks_written"] if write_results else 0,
             "blocks": enriched_blocks,
             "dry_run": dry_run,
         }

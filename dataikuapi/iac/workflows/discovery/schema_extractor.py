@@ -4,7 +4,7 @@ This module implements the SchemaExtractor class which extracts dataset schemas
 and enriches block metadata with schema information.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from dataikuapi import DSSClient
 from dataikuapi.iac.workflows.discovery.models import BlockMetadata
 from dataikuapi.iac.workflows.discovery.exceptions import SchemaExtractionError
